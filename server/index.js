@@ -1,0 +1,42 @@
+import express from "express";
+import cors from "cors";
+import dotenv from "dotenv";
+import cookieParser from "cookie-parser";
+
+
+import userRoutes from "./routes/userRoutes.js";
+// Routes
+import authRoutes from "./routes/authRoutes.js";
+// import userRoutes from "./routes/userRoutes.js";
+// import ticketRoutes from "./routes/ticketRoutes.js";
+
+dotenv.config();
+
+const app = express();
+
+// Middleware
+app.use(
+  cors({
+    origin: "http://localhost:5173", // React dev server
+    credentials: true,
+  })
+);
+
+app.use(express.json());
+app.use(cookieParser());
+
+// Health check (important when debugging)
+app.get("/api/health", (req, res) => {
+  res.json({ message: "API is running 🚀" });
+});
+
+// Routes
+app.use("/auth", authRoutes);
+// app.use("/api/users", userRoutes);
+// app.use("/api/tickets", ticketRoutes);
+app.use("/api/users", userRoutes);
+const PORT = process.env.PORT ;
+
+app.listen(PORT, () => {
+  console.log(`✅ Server running on http://localhost:${PORT}`);
+});
