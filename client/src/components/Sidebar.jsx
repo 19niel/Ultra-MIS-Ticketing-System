@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import {
   LayoutDashboard,
   Ticket,
@@ -14,13 +14,14 @@ import {
   CopyrightIcon
 } from "lucide-react";
 
-export default function Sidebar({ role = "admin" }) {
+export default function Sidebar({ role }) {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const location = useLocation();
 
   const adminNavItems = [
     { icon: LayoutDashboard, label: "Dashboard", to: "/admin" },
     { icon: Ticket, label: "All Tickets", to: "/admin/tickets" },
-    { icon: MessageSquare, label: "New Ticket", to: "/admin/new" },
+    { icon: MessageSquare, label: "New Ticket", to: "/admin/new"}, 
     { icon: Users, label: "Users", to: "/admin/users" },
     { icon: BarChart3, label: "Reports", to: "/admin/reports" },
     { icon: Settings, label: "Settings", to: "/admin/settings" },
@@ -56,30 +57,37 @@ export default function Sidebar({ role = "admin" }) {
       }`}
     >
       {/* Header */}
-      <div className="p-4 border-b flex items-center justify-between">
-        {!isCollapsed && <span className="font-bold text-sm">Ubix Help Desk</span>}
-        <button
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          className="hover:bg-green-100 rounded cursor-pointer p-1"
-        >
+      <div className="p-4  border-b flex items-center justify-between">
+        {!isCollapsed && (
+          <span className="font-bold text-sm">Ubix Help Desk</span>
+        )}
+        <button onClick={() => setIsCollapsed(!isCollapsed)} className="hover:bg-green-100 rounded cursor-pointer">
           {isCollapsed ? <ChevronRight /> : <ChevronLeft />}
         </button>
       </div>
 
       {/* Main Nav */}
       <nav className="flex-1 p-2 space-y-1">
-        {navItems.map((item) => (
-          <NavLink
-            key={item.to}
-            to={item.to}
-            className={`flex items-center gap-3 p-2 rounded hover:bg-gray-100 ${
-              !isCollapsed ? "" : "justify-center"
-            }`}
-          >
-            <item.icon className="w-5 h-5" />
-            {!isCollapsed && <span>{item.label}</span>}
-          </NavLink>
-        ))}
+        {navItems.map((item) => {
+          // Determine if the link should match exactly (for Dashboard)
+          const exactMatch = item.label === "Dashboard";
+          const isActive = exactMatch
+            ? location.pathname === item.to
+            : location.pathname.startsWith(item.to);
+
+          return (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={`flex items-center gap-3 p-2 rounded hover:bg-gray-100 ${
+                isActive ? "bg-blue-100 text-blue-600" : ""
+              } ${isCollapsed ? "justify-center" : ""}`}
+            >
+              <item.icon className="w-5 h-5" />
+              {!isCollapsed && <span>{item.label}</span>}
+            </NavLink>
+          );
+        })}
       </nav>
 
       {/* Bottom Nav */}
@@ -89,7 +97,7 @@ export default function Sidebar({ role = "admin" }) {
           {!isCollapsed && <span>Notifications</span>}
         </div>
 
-        <div className="flex items-center gap-3 p-2 hover:bg-gray-100 rounded cursor-pointer">
+          <div className="flex items-center gap-3 p-2 hover:bg-gray-100 rounded cursor-pointer">
           <CopyrightIcon className="w-5 h-5" />
           {!isCollapsed && <span>All Rights Reserved Talag</span>}
         </div>

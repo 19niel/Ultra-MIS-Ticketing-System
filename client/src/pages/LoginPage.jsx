@@ -28,6 +28,19 @@ export default function LoginPage() {
         return;
       }
 
+      sessionStorage.setItem(
+        "user",
+        JSON.stringify({
+          ...data.user,
+          role:
+            data.user.role_id === 1
+              ? "admin"
+              : data.user.role_id === 2
+              ? "tech_support"
+              : "employee",
+        })
+      );
+
       // Redirect based on role
       switch (data.user.role_id) {
         case 1: // Admin

@@ -3,27 +3,21 @@ import Sidebar from "../../components/Sidebar";
 import Header from "../../components/Header";
 
 export default function EmployeeLayout() {
-  // ✅ Static placeholders
-  const role = "admin";
-  const username = "John Doe";
-  const initials = "JD";
+  const user = JSON.parse(sessionStorage.getItem("user"));
+  const role = user?.role || "employee";
 
   return (
     <div className="flex h-screen bg-gray-100">
-      {/* Sidebar */}
-      <Sidebar role={role} className="h-full" />
+      <Sidebar role={role} />
 
-      {/* Main Area */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Header */}
-        <Header role={role} username={username} initials={initials} />
+        <Header role={role} />
 
-        {/* Page Content */}
         <main className="flex-1 overflow-y-auto p-6">
-          {/* Render nested routes here */}
           <Outlet />
         </main>
       </div>
     </div>
   );
 }
+  
