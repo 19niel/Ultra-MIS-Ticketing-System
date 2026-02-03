@@ -5,6 +5,12 @@ import ProtectedRoute from "./utils/ProtectedRoute";
 // Admin
 import AdminLayout from "./pages/admin/AdminLayout";
 import AdminDashboard from "./pages/admin/dashboard/Dashboard";
+import AdminTickets from "./pages/admin/tickets/Tickets"
+import AdminNewTickets from "./pages/admin/tickets_new/NewTickets"
+import AdminProfile from "./pages/admin/profile/Profile"
+import AdminNotifications from "./pages/admin/notifications/Notifications"
+import AdminSettings from "./pages/admin/settings/Settings"
+import AdminUsers from "./pages/admin/users/Users"
 
 // Employee
 import EmployeeLayout from "./pages/employee/EmployeeLayout";
@@ -31,7 +37,28 @@ export default function App() {
           }
         >
           <Route index element={<AdminDashboard />} />
+          <Route path="tickets" index element={<AdminTickets />} />
+          <Route path="new" index element={<AdminNewTickets />} />
+          <Route path="profile" index element={<AdminProfile />} />
+          <Route path="notifications" index element={<AdminNotifications />} />
+          <Route path="settings" index element={<AdminSettings />} />
+          <Route path="users" index element={<AdminUsers />} />
+
         </Route>
+
+
+        {/* TECH SUPPORT (role_id = 2) */}
+        <Route
+          path="/techsupport"
+          element={
+            <ProtectedRoute allowedRoles={[2]}>
+              <TechSupportLayout />
+            </ProtectedRoute>
+          }
+        >
+          <Route index element={<TechSupportDashboard />} />
+        </Route>
+
 
         {/* EMPLOYEE (role_id = 3) */}
         <Route
@@ -45,17 +72,7 @@ export default function App() {
           <Route index element={<EmployeeDashboard />} />
         </Route>
 
-        {/* TECH SUPPORT (role_id = 2) */}
-        <Route
-          path="/techsupport"
-          element={
-            <ProtectedRoute allowedRoles={[2]}>
-              <TechSupportLayout />
-            </ProtectedRoute>
-          }
-        >
-          <Route index element={<TechSupportDashboard />} />
-        </Route>
+
       </Routes>
     </BrowserRouter>
   );

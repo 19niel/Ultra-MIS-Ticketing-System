@@ -3,10 +3,15 @@ import cors from "cors";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 
+// Admin
+import authRoutes from "./routes/admin/authRoutes.js"
+import userRoutes from "./routes/admin/userRoutes.js"
 
-import userRoutes from "./routes/userRoutes.js";
-// Routes
-import authRoutes from "./routes/authRoutes.js";
+// Employee
+
+
+// Tech Support
+
 // import userRoutes from "./routes/userRoutes.js";
 // import ticketRoutes from "./routes/ticketRoutes.js";
 

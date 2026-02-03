@@ -1,6 +1,6 @@
-import { db } from "../db.js";
+import { db } from "../../db.js";
 
-// Demo login controller
+// Login controller
 export const login = async (req, res) => {
   const { email, password } = req.body;
 
@@ -9,6 +9,7 @@ export const login = async (req, res) => {
   }
 
   try {
+    // 1. Fetch user by email
     const [rows] = await db.query("SELECT * FROM users WHERE email = ?", [email]);
 
     if (rows.length === 0) {
@@ -17,12 +18,13 @@ export const login = async (req, res) => {
 
     const user = rows[0];
 
-    // DEMO ONLY: fixed password
-    if (password !== "1234") {
+    // 2. Compare password with database column 'password_hash'
+    // Note: Currently comparing as plain text per your request
+    if (password !== user.password_hash) {
       return res.status(401).json({ message: "Invalid credentials" });
     }
 
-    // ✅ include first_name, last_name, and position in cookie
+    // 3. Set the session cookie
     res.cookie(
       "session",
       JSON.stringify({
@@ -31,15 +33,16 @@ export const login = async (req, res) => {
         employee_id: user.employee_id,
         first_name: user.first_name,
         last_name: user.last_name,
-        position: user.position || "", // ensure position exists in DB
+        position: user.position || "", 
       }),
       {
         httpOnly: true,
-        secure: false,
+        secure: false, // Set to true if using HTTPS
         maxAge: 24 * 60 * 60 * 1000,
       }
     );
 
+    // 4. Send response
     res.json({
       message: "Login successful",
       user: {
@@ -57,7 +60,7 @@ export const login = async (req, res) => {
   }
 };
 
-// Demo 'me' endpoint
+// 'me' endpoint to check current session
 export const me = (req, res) => {
   const session = req.cookies.session;
 
@@ -66,14 +69,14 @@ export const me = (req, res) => {
   }
 
   try {
-    const user = JSON.parse(session); // now includes first_name, last_name, position
+    const user = JSON.parse(session);
     res.json({ user });
   } catch (err) {
     res.status(401).json({ message: "Invalid session" });
   }
 };
 
-// Demo logout
+// Logout controller
 export const logout = (req, res) => {
   res.clearCookie("session");
   res.json({ message: "Logged out" });
