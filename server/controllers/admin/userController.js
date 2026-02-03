@@ -8,6 +8,7 @@
           first_name,
           last_name,
           email,
+          position,
           role_id,
           employee_id
         FROM users`
