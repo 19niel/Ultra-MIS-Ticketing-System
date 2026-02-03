@@ -20,75 +20,41 @@ const STATUS_ID_TO_NAME = {
 
 export default function ViewTicket({ ticket, onClose, userRole }) {
   const [newMessage, setNewMessage] = useState("");
-
-  // ✅ NEW: separate display vs selected status
   const [displayStatus, setDisplayStatus] = useState(ticket.status);
-  const [selectedStatusId, setSelectedStatusId] = useState(null);
+  const [conversations, setConversations] = useState(ticket.conversations || []);
+  const [savingStatus, setSavingStatus] = useState(false);
+  
+  // State for toggling between button and dropdown
+  const [editingStatus, setEditingStatus] = useState(false);
+  const [selectedStatusId, setSelectedStatusId] = useState("");
 
   useEffect(() => {
     setDisplayStatus(ticket.status);
-    setSelectedStatusId(null);
   }, [ticket]);
 
-  const [conversations, setConversations] = useState(
-    ticket.conversations || []
-  );
-  const [editingStatus, setEditingStatus] = useState(false);
-  const [savingStatus, setSavingStatus] = useState(false);
-
-  const canChangeStatus = userRole === "admin" || userRole === "employee";
-
   const getInitials = (name) =>
-    name
-      ?.split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase();
+    name?.split(" ").map((n) => n[0]).join("").toUpperCase();
 
   const formatTimestamp = (timestamp) =>
-    new Date(timestamp).toLocaleString("en-US", {
+    timestamp ? new Date(timestamp).toLocaleString("en-US", {
       month: "short",
       day: "numeric",
       hour: "numeric",
       minute: "2-digit",
-    });
+    }) : "N/A";
 
   /* ===============================
-     MESSAGE HANDLING
+       STATUS HANDLING
   =============================== */
-  const handleSendMessage = () => {
-    if (!newMessage.trim()) return;
-
-    const newMsg = {
-      id: Date.now(),
-      sender: "You",
-      senderRole: userRole,
-      message: newMessage,
-      timestamp: new Date(),
-      isInternal: false,
-    };
-
-    setConversations((prev) => [...prev, newMsg]);
-    setNewMessage("");
-  };
-
-  /* ===============================
-     STATUS HANDLING
-  =============================== */
-  const handleStatusChange = (e) => {
-    setSelectedStatusId(Number(e.target.value));
-  };
-
   const handleStatusUpdate = async () => {
     if (!selectedStatusId) return;
 
     setSavingStatus(true);
-
     try {
       const res = await fetch(
-        `http://localhost:3000/api/tickets/${ticket.ticket_id}/status`,
+        `http://localhost:3000/api/tickets/status/${ticket.ticket_id}`,
         {
-          method: "PATCH",
+          method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             status_id: selectedStatusId,
@@ -96,168 +62,138 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
         }
       );
 
-      if (!res.ok) {
-        throw new Error("Failed to update status");
-      }
+      if (!res.ok) throw new Error("Failed to update status");
 
       const data = await res.json();
-
-      // ✅ update display AFTER save
       setDisplayStatus(STATUS_ID_TO_NAME[selectedStatusId]);
-      setEditingStatus(false);
+      setEditingStatus(false); 
 
       toast.success(
-        `Ticket ${data.ticket_number || ticket.ticket_number} status updated successfully 🎉`
+        `Ticket updated to ${STATUS_ID_TO_NAME[selectedStatusId]} 🎉`
       );
 
       setTimeout(() => {
         window.location.reload();
-      }, 1200);
+      }, 800);
     } catch (err) {
       console.error(err);
-      toast.error(
-        `Ticket ${ticket.ticket_number} status update failed ❌`
-      );
+      toast.error(`Update failed ❌`);
     } finally {
       setSavingStatus(false);
     }
   };
 
   /* ===============================
-     RENDER
+       MESSAGE HANDLING
   =============================== */
+  const handleSendMessage = () => {
+    if (!newMessage.trim()) return;
+    const newMsg = {
+      id: Date.now(),
+      sender: "You",
+      senderRole: userRole,
+      message: newMessage,
+      timestamp: new Date(),
+    };
+    setConversations((prev) => [...prev, newMsg]);
+    setNewMessage("");
+  };
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col shadow-xl">
         {/* HEADER */}
         <div className="p-6 border-b flex items-start justify-between">
           <div className="space-y-2 flex-1">
             <div className="flex items-center gap-3 flex-wrap">
-              <span className="font-mono text-sm text-gray-500">
+              <span className="font-mono text-sm text-gray-500 bg-gray-100 px-2 py-0.5 rounded">
                 {ticket.ticket_number}
               </span>
 
-              <span
-                className={`px-2 py-1 rounded text-xs font-semibold capitalize ${
-                  PRIORITY_COLOR[ticket.priority?.toLowerCase()]
-                }`}
-              >
-                {PRIORITY_MAP[ticket.priority?.toLowerCase()] ||
-                  ticket.priority}
+              <span className={`px-2 py-1 rounded text-xs font-semibold capitalize ${PRIORITY_COLOR[ticket.priority?.toLowerCase()]}`}>
+                {PRIORITY_MAP[ticket.priority?.toLowerCase()] || ticket.priority}
               </span>
 
-              {/* ✅ DISPLAY STATUS ONLY */}
-              <span
-                className={`px-2 py-1 rounded text-xs font-semibold capitalize ${
-                  STATUS_COLOR[displayStatus?.toLowerCase()]
-                }`}
-              >
+              <span className={`px-2 py-1 rounded text-xs font-semibold capitalize ${STATUS_COLOR[displayStatus?.toLowerCase()]}`}>
                 {STATUS_MAP[displayStatus?.toLowerCase()] || displayStatus}
               </span>
             </div>
 
-            <h2 className="text-2xl font-bold">{ticket.subject}</h2>
-            <p className="text-gray-700">{ticket.description}</p>
+            <h2 className="text-2xl font-bold mt-2">{ticket.subject}</h2>
+            <p className="text-gray-700 leading-relaxed">{ticket.description}</p>
 
-            <div className="flex items-center gap-6 text-sm text-gray-500 flex-wrap">
-              <span className="flex items-center gap-2">
-                <User className="h-4 w-4" /> {ticket.created_by}
-              </span>
-
-              <span className="flex items-center gap-2">
-                <UserCog className="h-4 w-4" />{" "}
-                {ticket.assigned_to || "No Assigned Yet"}
-              </span>
-
-              <span className="flex items-center gap-2">
-                <Tag className="h-4 w-4" />{" "}
-                {CATEGORY_MAP[ticket.category?.toLowerCase()] ||
-                  ticket.category}
-              </span>
-
-              <span className="flex items-center gap-2">
-                <Clock className="h-4 w-4" />{" "}
-                {formatTimestamp(ticket.created_at)}
-              </span>
-
-              <span className="flex items-center gap-2">
-                <CalendarClock className="h-4 w-4" />{" "}
-                {ticket.closed_at
-                  ? formatTimestamp(ticket.closed_at)
-                  : "Not Closed Yet"}
-              </span>
+            <div className="flex items-center gap-6 text-sm text-gray-500 flex-wrap pt-2">
+              <span className="flex items-center gap-2"><User size={14} /> {ticket.created_by}</span>
+              <span className="flex items-center gap-2"><UserCog size={14} /> {ticket.assigned_to || "No Assigned Yet"}</span>
+              <span className="flex items-center gap-2"><Tag size={14} /> {CATEGORY_MAP[ticket.category?.toLowerCase()] || ticket.category}</span>
+              <span className="flex items-center gap-2"><Clock size={14} /> {formatTimestamp(ticket.created_at)}</span>
+              <span className="flex items-center gap-2"><CalendarClock size={14} /> {ticket.closed_at ? formatTimestamp(ticket.closed_at) : "Active"}</span>
             </div>
 
-            {/* STATUS EDIT */}
-            {canChangeStatus && (
-              <div className="pt-3 flex items-center gap-2">
+            {/* ✅ FORCED VISIBILITY: NO ROLE CHECK */}
+            <div className="pt-3 flex items-center gap-2">
+              {!editingStatus ? (
                 <button
-                  disabled={savingStatus}
-                  onClick={() =>
-                    editingStatus
-                      ? handleStatusUpdate()
-                      : setEditingStatus(true)
-                  }
-                  className={`px-3 py-1 rounded text-white text-sm w-30 ${
-                    editingStatus
-                      ? "bg-green-600 hover:bg-green-700"
-                      : "bg-blue-600 hover:bg-blue-700"
-                  }`}
+                  onClick={() => setEditingStatus(true)}
+                  className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 transition-colors"
                 >
-                  {savingStatus
-                    ? "Saving..."
-                    : editingStatus
-                    ? "Save Status"
-                    : "Change Status"}
+                  Change Status
                 </button>
-
-                {editingStatus && (
+              ) : (
+                <div className="flex items-center gap-2">
                   <select
-                    value={selectedStatusId ?? ""}
-                    onChange={handleStatusChange}
-                    className="px-2 py-1 text-sm rounded border border-gray-300 focus:ring focus:ring-blue-300"
+                    value={selectedStatusId}
+                    onChange={(e) => setSelectedStatusId(e.target.value)}
+                    className="text-sm border rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 outline-none"
                   >
-                    <option value="" disabled>
-                      Select status
-                    </option>
-                    <option value={1}>Open</option>
-                    <option value={2}>In Progress</option>
-                    <option value={3}>On Hold</option>
-                    <option value={4}>Resolved</option>
-                    <option value={5}>Closed</option>
-                    <option value={6}>Failed</option>
+                    <option value="" disabled>Select status</option>
+                    <option value="1">Open</option>
+                    <option value="2">In Progress</option>
+                    <option value="3">On Hold</option>
+                    <option value="4">Resolved</option>
+                    <option value="5">Closed</option>
+                    <option value="6">Failed</option>
                   </select>
-                )}
-              </div>
-            )}
+                  <button
+                    disabled={savingStatus || !selectedStatusId}
+                    onClick={handleStatusUpdate}
+                    className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700 disabled:opacity-50"
+                  >
+                    {savingStatus ? "Saving..." : "Save"}
+                  </button>
+                  <button
+                    onClick={() => setEditingStatus(false)}
+                    className="text-sm text-gray-500 hover:text-gray-700"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
-          <button className="p-2 hover:bg-gray-100 rounded" onClick={onClose}>
-            <X className="h-5 w-5" />
+          <button className="p-2 hover:bg-gray-100 rounded-full" onClick={onClose}>
+            <X className="h-6 w-6 text-gray-400" />
           </button>
         </div>
 
         {/* CONVERSATIONS */}
-        <div className="flex-1 overflow-y-auto p-6 space-y-4">
+        <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-gray-50">
           {conversations.length === 0 ? (
-            <div className="text-center text-gray-400 py-8">
-              No messages yet
-            </div>
+            <div className="text-center text-gray-400 py-8">No messages yet</div>
           ) : (
             conversations.map((msg) => (
               <div key={msg.id} className="flex gap-4">
-                <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold">
+                <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-xs font-bold text-white shrink-0">
                   {getInitials(msg.sender)}
                 </div>
-                <div className="flex-1 space-y-1">
-                  <div className="flex items-center gap-2 text-sm">
+                <div className="flex-1 bg-white p-3 rounded-lg border shadow-sm">
+                  <div className="flex items-center gap-2 text-sm mb-1">
                     <span className="font-semibold">{msg.sender}</span>
-                    <span className="text-gray-400">{msg.senderRole}</span>
-                    <span className="text-gray-400 text-xs">
-                      {formatTimestamp(msg.timestamp)}
-                    </span>
+                    <span className="text-gray-400 text-xs">({msg.senderRole})</span>
+                    <span className="text-gray-400 text-[10px] ml-auto">{formatTimestamp(msg.timestamp)}</span>
                   </div>
-                  <p className="text-sm">{msg.message}</p>
+                  <p className="text-sm text-gray-600">{msg.message}</p>
                 </div>
               </div>
             ))
@@ -265,20 +201,20 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
         </div>
 
         {/* MESSAGE INPUT */}
-        <div className="p-6 border-t flex gap-3">
+        <div className="p-6 border-t bg-white flex gap-3">
           <input
             type="text"
-            placeholder="Type your message..."
+            placeholder="Add a comment..."
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
-            className="flex-1 border rounded px-3 py-2 focus:outline-none focus:ring"
+            className="flex-1 border rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 outline-none"
           />
           <button
             onClick={handleSendMessage}
-            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center gap-2"
+            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 font-semibold flex items-center gap-2 transition-colors"
           >
-            <Send className="h-4 w-4" /> Send
+            <Send size={16} /> Send
           </button>
         </div>
       </div>

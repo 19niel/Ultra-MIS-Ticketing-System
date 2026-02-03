@@ -6,6 +6,7 @@ import cookieParser from "cookie-parser";
 // Admin
 import authRoutes from "./routes/admin/authRoutes.js"
 import userRoutes from "./routes/admin/userRoutes.js"
+import ticketRoutes from "./routes/admin/ticketRoutes.js";
 
 // Employee
 
@@ -13,7 +14,6 @@ import userRoutes from "./routes/admin/userRoutes.js"
 // Tech Support
 
 // import userRoutes from "./routes/userRoutes.js";
-// import ticketRoutes from "./routes/ticketRoutes.js";
 
 dotenv.config();
 
@@ -37,8 +37,9 @@ app.get("/api/health", (req, res) => {
 
 // Routes
 app.use("/auth", authRoutes);
-// app.use("/api/tickets", ticketRoutes);
 app.use("/api/users", userRoutes);
+app.use("/api/tickets", ticketRoutes);
+
 const PORT = process.env.PORT ;
 
 app.listen(PORT, () => {
