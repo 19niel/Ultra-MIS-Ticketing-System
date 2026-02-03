@@ -28,29 +28,38 @@ export default function AddUserForm({ isOpen, onClose, onSuccess }) {
     }));
   };
 
-  const handleSubmit = async (e) => {
-  e.preventDefault();
+const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true); // Set loading to true when starting
+    setError("");
 
-  try {
-    const res = await fetch("http://localhost:3000/api/users", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(formData),
-    });
+    try {
+      const res = await fetch("http://localhost:3000/api/users", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
 
-    const data = await res.json();
+      const data = await res.json();
 
-    if (!res.ok) {
-      toast.error(data.message || "Failed to add user");
-      return;
+      if (!res.ok) {
+        // This is where your 409 error is caught
+        const errorMsg = data.message || "Failed to add user";
+        toast.error(errorMsg);
+        setError(errorMsg); // Show it in the modal UI too
+        return;
+      }
+
+      toast.success("User added successfully");
+      if (onSuccess) onSuccess(); // Refresh the table list
+      onClose(); // Close the modal
+    } catch (error) {
+      console.error("Add User Error:", error);
+      toast.error("Server error. Please check your connection.");
+    } finally {
+      setLoading(false);
     }
-
-    toast.success("User added successfully");
-    onClose();
-  } catch (error) {
-    toast.error("Server error");
-  }
-};
+  };
 
   return (
     <div className="fixed inset-0 flex justify-center items-center z-50 bg-black/30 backdrop-blur-sm">
