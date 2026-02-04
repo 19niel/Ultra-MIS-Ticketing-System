@@ -1,210 +1,108 @@
-import { useEffect, useState, useRef } from "react";
-import { X, Send, Clock, User, UserCog, Tag, MessageSquare, Info, CheckCircle2, UserPlus } from "lucide-react";
-import {
-  STATUS_MAP,
-  PRIORITY_MAP,
-  CATEGORY_MAP,
-  STATUS_COLOR,
-  PRIORITY_COLOR,
-} from "../mapping";
+import { useEffect, useState, useRef, useCallback } from "react";
+import { X, Send, Clock, User, UserCog, Tag, MessageSquare, Info, CheckCircle2, UserPlus, AlertCircle } from "lucide-react";
+import { STATUS_MAP, PRIORITY_MAP, CATEGORY_MAP, STATUS_COLOR, PRIORITY_COLOR } from "../mapping";
 import { toast } from "sonner";
 import { socket } from "../../../../socket";
 
-const STATUS_ID_TO_NAME = {
-  1: "Open", 2: "In Progress", 3: "On Hold", 4: "Resolved", 5: "Closed", 6: "Failed",
-};
+const STATUS_ID_TO_NAME = { 1: "Open", 2: "In Progress", 3: "On Hold", 4: "Resolved", 5: "Closed", 6: "Failed" };
+const PRIORITY_ID_TO_NAME = { 1: "Low", 2: "Medium", 3: "High", 4: "Urgent" }; // Adjust IDs based on your DB
+const BASE_URL = "http://localhost:3000/api/tickets";
 
 export default function ViewTicket({ ticket, onClose, userRole }) {
   const [newMessage, setNewMessage] = useState("");
   const [displayStatus, setDisplayStatus] = useState(ticket.status);
+  const [displayPriority, setDisplayPriority] = useState(ticket.priority);
   const [displayAssignee, setDisplayAssignee] = useState(ticket.assigned_to);
   const [conversations, setConversations] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(true);
-  
+  const [supportUsers, setSupportUsers] = useState([]);
+
   const messagesEndRef = useRef(null);
 
-  // States for Status editing
+  // Toggle States
   const [editingStatus, setEditingStatus] = useState(false);
-  const [selectedStatusId, setSelectedStatusId] = useState("");
-
-// States for Priority editing
-const [editingPriority, setEditingPriority] = useState(false);
-const [selectedPriorityId, setSelectedPriorityId] = useState("");
-
-  // States for Assignee editing
+  const [editingPriority, setEditingPriority] = useState(false);
   const [editingAssignee, setEditingAssignee] = useState(false);
-  const [supportUsers, setSupportUsers] = useState([]);
+
+  // Form States
+  const [selectedStatusId, setSelectedStatusId] = useState("");
+  const [selectedPriorityId, setSelectedPriorityId] = useState("");
   const [selectedAssigneeId, setSelectedAssigneeId] = useState("");
 
-  // Auto-scroll to bottom when messages change
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-  
+  const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
 
-  useEffect(() => {
-    setDisplayStatus(ticket.status);
-    setDisplayAssignee(ticket.assigned_to);
-    fetchSupportUsers();
-    fetchMessages();
-  }, [ticket]);
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [conversations]);
-
-  useEffect(() => {
-    // Handler for new messages
-    const handleNewMessage = (msg) => {
-      if (msg.ticket_id === ticket.ticket_id) {
-        setConversations((prev) => [
-          ...prev,
-          {
-            message_id: msg.message_id,
-            message: msg.message,
-            created_at: msg.created_at,
-            user_id: msg.user_id,
-            first_name: msg.first_name || "Someone",
-            last_name: msg.last_name || "",
-            senderRole: msg.senderRole || "User",
-          },
-        ]);
-      }
-    };
-
-    // Handler for assignee updates
-    const handleAssigneeUpdate = (data) => {
-      if (data.ticket_id === ticket.ticket_id) {
-        const chosenUser = supportUsers.find(u => u.employee_id === data.assigned_to);
-        setDisplayAssignee(chosenUser ? `${chosenUser.first_name} ${chosenUser.last_name}` : "Unassigned");
-      }
-    };
-
-    // Handler for priority updates
-  const handlePriorityUpdate = async () => {
-    if (!selectedPriorityId) return;
-    try {
-      const res = await fetch(`http://localhost:3000/api/tickets/priority/${ticket.ticket_id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ priority_id: selectedPriorityId }),
-      });
-      if (!res.ok) throw new Error();
-
-      const chosenPriority = PRIORITY_MAP[selectedPriorityId]; 
-      setDisplayPriority(chosenPriority);
-      setEditingPriority(false);
-      toast.success("Priority updated");
-    } catch (err) {
-      toast.error("Priority update failed");
-    }
-  };
-
-    // Listen for socket events
-    socket.on("ticket:message:new", handleNewMessage);
-    socket.on("ticket:assignee:updated", handleAssigneeUpdate);
-    socket.on("ticket:priorityUpdated", handlePriorityUpdate);
-
-    return () => {
-      socket.off("ticket:message:new", handleNewMessage);
-      socket.off("ticket:assignee:updated", handleAssigneeUpdate);
-      socket.off("ticket:priorityUpdated", handlePriorityUpdate);
-    };
-  }, [ticket.ticket_id, supportUsers]);
-
-
-
-  const fetchMessages = async () => {
+  const fetchMessages = useCallback(async () => {
     try {
       setLoadingMessages(true);
-      const res = await fetch(`http://localhost:3000/api/tickets/${ticket.ticket_id}/messages`);
+      const res = await fetch(`${BASE_URL}/${ticket.ticket_id}/messages`);
       const data = await res.json();
       setConversations(data);
     } catch (err) {
-      console.error("Failed to fetch messages");
+      console.error("Failed to fetch messages", err);
     } finally {
       setLoadingMessages(false);
     }
-  };
+  }, [ticket.ticket_id]);
 
-  const fetchSupportUsers = async () => {
-    try {
-      const res = await fetch("http://localhost:3000/api/tickets/support-users");
-      const data = await res.json();
-      setSupportUsers(data);
-    } catch (err) {
-      console.error("Failed to fetch support users");
-    }
-  };
+  useEffect(() => {
+    setDisplayStatus(ticket.status);
+    setDisplayPriority(ticket.priority);
+    setDisplayAssignee(ticket.assigned_to);
+    fetchMessages();
+    
+    // Fetch support users for the assignee dropdown
+    fetch(`${BASE_URL}/support-users`)
+      .then(res => res.json())
+      .then(data => setSupportUsers(data))
+      .catch(err => console.error(err));
+  }, [ticket, fetchMessages]);
 
-  const handleStatusUpdate = async () => {
-    if (!selectedStatusId) return;
+  useEffect(() => { scrollToBottom(); }, [conversations]);
+
+  // Generic Update Handler
+  const handleUpdate = async (type, body, successCallback) => {
     try {
-      const res = await fetch(`http://localhost:3000/api/tickets/status/${ticket.ticket_id}`, {
+      const endpoints = {
+        status: `${BASE_URL}/status/${ticket.ticket_id}`,
+        priority: `${BASE_URL}/priority/${ticket.ticket_id}`,
+        assign: `${BASE_URL}/assign/${ticket.ticket_id}`,
+      };
+
+      const res = await fetch(endpoints[type], {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status_id: selectedStatusId }),
+        body: JSON.stringify(body),
       });
+
       if (!res.ok) throw new Error();
-      setDisplayStatus(STATUS_ID_TO_NAME[selectedStatusId]);
-      setEditingStatus(false);
-      toast.success("Status updated");
+      successCallback();
+      toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} updated`);
     } catch (err) {
-      toast.error("Update failed");
+      toast.error(`Update failed`);
     }
   };
-
-  const handleAssignUpdate = async () => {
-    if (!selectedAssigneeId) return;
-    try {
-      const res = await fetch(`http://localhost:3000/api/tickets/assign/${ticket.ticket_id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ assigned_to: selectedAssigneeId }),
-      });
-      if (!res.ok) throw new Error();
-      
-      const chosenUser = supportUsers.find(u => u.employee_id === selectedAssigneeId);
-      setDisplayAssignee(`${chosenUser.first_name} ${chosenUser.last_name}`);
-      setEditingAssignee(false);
-      toast.success("Ticket assigned successfully");
-    } catch (err) {
-      toast.error("Assignment failed");
-    }
-  };
-
-  const getInitials = (fname, lname) => {
-    return `${fname?.[0] || ""}${lname?.[0] || ""}`.toUpperCase() || "?";
-  };
-
-  const formatTimestamp = (timestamp) =>
-    timestamp ? new Date(timestamp).toLocaleString("en-US", {
-      month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
-    }) : "N/A";
 
   const handleSendMessage = async () => {
     if (!newMessage.trim()) return;
-
     try {
-      const res = await fetch("http://localhost:3000/api/tickets/messages", {
+      const res = await fetch(`${BASE_URL}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // IMPORTANT: replace ticket.user_id with your actual logged-in user session ID
         body: JSON.stringify({
           ticket_id: ticket.ticket_id,
           user_id: ticket.created_by_id || 1, 
           message: newMessage,
         }),
       });
-
       if (!res.ok) throw new Error();
-      
       setNewMessage("");
-      fetchMessages(); // Refresh thread
+      fetchMessages();
     } catch (err) {
       toast.error("Failed to send message");
     }
   };
+
+  const formatTimestamp = (ts) => ts ? new Date(ts).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "N/A";
 
   return (
     <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-0 sm:p-4">
@@ -213,7 +111,7 @@ const [selectedPriorityId, setSelectedPriorityId] = useState("");
         {/* TOP BAR */}
         <div className="px-6 py-4 border-b flex items-center justify-between bg-white">
           <div className="flex items-center gap-4">
-            <div className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-bold tracking-wider uppercase border border-blue-100">
+            <div className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-bold border border-blue-100 uppercase tracking-wider">
               {ticket.ticket_number}
             </div>
             <h2 className="text-lg font-bold text-gray-800 truncate max-w-[300px]">{ticket.subject}</h2>
@@ -224,162 +122,142 @@ const [selectedPriorityId, setSelectedPriorityId] = useState("");
         </div>
 
         <div className="flex flex-1 overflow-hidden">
-          {/* LEFT COLUMN */}
-          <div className="hidden md:flex w-1/3 border-r flex-col bg-gray-50/50">
-            <div className="p-6 space-y-8 overflow-y-auto">
-              
-              <section>
-                <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3 block">Status & Priority</label>
-                <div className="space-y-3">
-                   {!editingStatus ? (
-                    <div 
-                      onClick={() => setEditingStatus(true)}
-                      className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer hover:bg-white transition-all ${STATUS_COLOR[displayStatus?.toLowerCase()] || 'bg-gray-100'}`}
-                    >
-                      <span className="text-sm font-bold uppercase">{STATUS_MAP[displayStatus?.toLowerCase()] || displayStatus}</span>
-                      <div className="bg-white/50 p-1 rounded-md"><CheckCircle2 size={14} /></div>
+          {/* LEFT COLUMN: TICKET INFO */}
+          <div className="hidden md:flex w-1/3 border-r flex-col bg-gray-50/50 p-6 space-y-8 overflow-y-auto">
+            
+            <section>
+              <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3 block">Status & Priority</label>
+              <div className="space-y-3">
+                {/* STATUS EDIT */}
+                {!editingStatus ? (
+                  <div onClick={() => setEditingStatus(true)} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer hover:shadow-md transition-all ${STATUS_COLOR[displayStatus?.toLowerCase()] || 'bg-gray-100'}`}>
+                    <span className="text-sm font-bold uppercase">{STATUS_MAP[displayStatus?.toLowerCase()] || displayStatus}</span>
+                    <CheckCircle2 size={14} className="opacity-60" />
+                  </div>
+                ) : (
+                  <div className="space-y-2 animate-in slide-in-from-top-1 duration-200">
+                    <select value={selectedStatusId} onChange={(e) => setSelectedStatusId(e.target.value)} className="w-full text-sm border-2 border-blue-500 rounded-xl px-3 py-2 outline-none">
+                      <option value="">Change status...</option>
+                      {Object.entries(STATUS_ID_TO_NAME).map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+                    </select>
+                    <div className="flex gap-2">
+                      <button onClick={() => handleUpdate('status', { status_id: selectedStatusId }, () => { setDisplayStatus(STATUS_ID_TO_NAME[selectedStatusId]); setEditingStatus(false); })} className="flex-1 bg-blue-600 text-white text-xs py-2 rounded-lg font-bold">Save</button>
+                      <button onClick={() => setEditingStatus(false)} className="flex-1 bg-gray-200 text-gray-600 text-xs py-2 rounded-lg font-bold">Cancel</button>
                     </div>
+                  </div>
+                )}
+
+                {/* PRIORITY EDIT */}
+                {!editingPriority ? (
+                  <div onClick={() => setEditingPriority(true)} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer hover:shadow-md transition-all ${PRIORITY_COLOR[displayPriority?.toLowerCase()] || 'bg-gray-100'}`}>
+                    <span className="text-sm font-bold uppercase">{PRIORITY_MAP[displayPriority?.toLowerCase()] || displayPriority} Priority</span>
+                    <AlertCircle size={14} className="opacity-60" />
+                  </div>
+                ) : (
+                  <div className="space-y-2 animate-in slide-in-from-top-1 duration-200">
+                    <select value={selectedPriorityId} onChange={(e) => setSelectedPriorityId(e.target.value)} className="w-full text-sm border-2 border-blue-500 rounded-xl px-3 py-2 outline-none">
+                      <option value="">Change priority...</option>
+                      {Object.entries(PRIORITY_ID_TO_NAME).map(([id, name]) => <option key={id} value={id}>{name}</option>)}
+                    </select>
+                    <div className="flex gap-2">
+                      <button onClick={() => handleUpdate('priority', { priority_id: selectedPriorityId }, () => { setDisplayPriority(PRIORITY_ID_TO_NAME[selectedPriorityId]); setEditingPriority(false); })} className="flex-1 bg-blue-600 text-white text-xs py-2 rounded-lg font-bold">Save</button>
+                      <button onClick={() => setEditingPriority(false)} className="flex-1 bg-gray-200 text-gray-600 text-xs py-2 rounded-lg font-bold">Cancel</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <section className="bg-blue-50 p-4 rounded-2xl border border-blue-100">
+              <h4 className="text-blue-800 text-sm font-bold mb-2 flex items-center gap-2"><Info size={14} /> Description</h4>
+              <p className="text-blue-900/70 text-sm leading-relaxed">{ticket.description}</p>
+            </section>
+
+            {/* ADDITIONAL DETAILS SECTION (Reporter, Assignee, etc.) */}
+            <section className="space-y-4">
+              <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest block">Details</label>
+              <div className="space-y-4 text-sm text-gray-800">
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500 flex items-center gap-2"><User size={14}/> Reporter</span>
+                  <span className="font-medium">{ticket.created_by}</span>
+                </div>
+
+                <div className="flex justify-between items-start">
+                  <span className="text-gray-500 flex items-center gap-2 mt-1"><UserCog size={14}/> Assignee</span>
+                  {!editingAssignee ? (
+                    <button onClick={() => setEditingAssignee(true)} className="text-blue-600 hover:underline font-medium flex items-center gap-1">
+                      {displayAssignee || "Unassigned"} <UserPlus size={12} />
+                    </button>
                   ) : (
-                    <div className="space-y-2">
-                      <select
-                        value={selectedStatusId}
-                        onChange={(e) => setSelectedStatusId(e.target.value)}
-                        className="w-full text-sm border-2 border-blue-500 rounded-xl px-3 py-2 outline-none"
-                      >
-                        <option value="" disabled>Change status...</option>
-                        {Object.entries(STATUS_ID_TO_NAME).map(([id, name]) => (
-                          <option key={id} value={id}>{name}</option>
-                        ))}
+                    <div className="flex flex-col gap-2 w-1/2">
+                      <select value={selectedAssigneeId} onChange={(e) => setSelectedAssigneeId(e.target.value)} className="w-full text-xs border rounded-lg px-2 py-1 outline-none">
+                        <option value="">Select IT...</option>
+                        {supportUsers.map(u => <option key={u.employee_id} value={u.employee_id}>{u.first_name} {u.last_name}</option>)}
                       </select>
-                      <div className="flex gap-2">
-                        <button onClick={handleStatusUpdate} className="flex-1 bg-blue-600 text-white text-xs py-2 rounded-lg font-bold">Save</button>
-                        <button onClick={() => setEditingStatus(false)} className="flex-1 bg-gray-200 text-gray-600 text-xs py-2 rounded-lg font-bold">Cancel</button>
+                      <div className="flex gap-1">
+                        <button onClick={() => handleUpdate('assign', { assigned_to: selectedAssigneeId }, () => {
+                          const user = supportUsers.find(u => u.employee_id === selectedAssigneeId);
+                          setDisplayAssignee(`${user.first_name} ${user.last_name}`);
+                          setEditingAssignee(false);
+                        })} className="flex-1 bg-blue-600 text-white text-[10px] py-1 rounded">Save</button>
+                        <button onClick={() => setEditingAssignee(false)} className="flex-1 bg-gray-200 text-gray-600 text-[10px] py-1 rounded">X</button>
                       </div>
                     </div>
                   )}
-
-                  <div className={`p-3 rounded-xl border flex items-center justify-between ${PRIORITY_COLOR[ticket.priority?.toLowerCase()]}`}>
-                    <span className="text-sm font-bold uppercase">{PRIORITY_MAP[ticket.priority?.toLowerCase()] || ticket.priority} Priority</span>
-                  </div>
                 </div>
-              </section>
 
-              <section className="bg-blue-50 p-4 rounded-2xl border border-blue-100">
-                <h4 className="text-blue-800 text-sm font-bold mb-2 flex items-center gap-2">
-                   <Info size={14} /> Description
-                </h4>
-                <p className="text-blue-900/70 text-sm leading-relaxed">{ticket.description}</p>
-              </section>
-
-              <section className="space-y-4">
-                <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest block">Details</label>
-                <div className="space-y-4 text-sm">
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-500 flex items-center gap-2"><User size={14}/> Reporter</span>
-                    <span className="font-medium text-gray-800">{ticket.created_by}</span>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-500 flex items-center gap-2"><UserCog size={14}/> Assignee</span>
-                      {!editingAssignee ? (
-                        <button 
-                          onClick={() => setEditingAssignee(true)}
-                          className="text-blue-600 hover:underline font-medium flex items-center gap-1"
-                        >
-                          {displayAssignee || "Unassigned"} <UserPlus size={12} />
-                        </button>
-                      ) : (
-                        <div className="flex flex-col gap-2 w-full mt-2">
-                          <select
-                            value={selectedAssigneeId}
-                            onChange={(e) => setSelectedAssigneeId(e.target.value)}
-                            className="w-full text-xs border rounded-lg px-2 py-1.5 outline-none"
-                          >
-                            <option value="">Select IT Personnel</option>
-                            {supportUsers.map(u => (
-                              <option key={u.employee_id} value={u.employee_id}>
-                                {u.first_name} {u.last_name}
-                              </option>
-                            ))}
-                          </select>
-                          <div className="flex gap-2">
-                            <button onClick={handleAssignUpdate} className="flex-1 bg-blue-600 text-white text-[10px] py-1 rounded font-bold">Assign</button>
-                            <button onClick={() => setEditingAssignee(false)} className="flex-1 bg-gray-200 text-gray-600 text-[10px] py-1 rounded font-bold">Cancel</button>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-500 flex items-center gap-2"><Tag size={14}/> Category</span>
-                    <span className="font-medium text-gray-800">{CATEGORY_MAP[ticket.category?.toLowerCase()] || ticket.category}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-gray-500 flex items-center gap-2"><Clock size={14}/> Created</span>
-                    <span className="font-medium text-gray-800 text-[12px]">{formatTimestamp(ticket.created_at)}</span>
-                  </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500 flex items-center gap-2"><Tag size={14}/> Category</span>
+                  <span className="font-medium">{CATEGORY_MAP[ticket.category?.toLowerCase()] || ticket.category}</span>
                 </div>
-              </section>
-            </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-500 flex items-center gap-2"><Clock size={14}/> Created</span>
+                  <span className="font-medium text-[12px]">{formatTimestamp(ticket.created_at)}</span>
+                </div>
+              </div>
+            </section>
           </div>
 
-          {/* RIGHT COLUMN: CONVERSATION */}
+          {/* RIGHT COLUMN: CONVERSATION (Same as previous cleanup) */}
           <div className="flex-1 flex flex-col bg-white">
-            <div className="p-4 border-b flex items-center gap-2 text-gray-500">
-              <MessageSquare size={16} />
-              <span className="text-sm font-semibold tracking-tight">Conversation Activity</span>
+            <div className="p-4 border-b flex items-center gap-2 text-gray-500 font-semibold text-sm">
+              <MessageSquare size={16} /> Conversation Activity
             </div>
 
             <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50/30">
               {loadingMessages ? (
-                <div className="flex justify-center py-10 text-gray-400 text-sm">Loading conversation...</div>
-              ) : conversations.length === 0 ? (
-                <div className="h-full flex flex-col items-center justify-center opacity-40">
-                  <div className="w-16 h-16 bg-gray-200 rounded-full flex items-center justify-center mb-4">
-                    <MessageSquare size={32} />
+                <div className="text-center py-10 text-gray-400">Loading...</div>
+              ) : conversations.map((msg) => (
+                <div key={msg.message_id} className="flex gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white font-bold shadow-sm">
+                    {msg.first_name?.[0]}{msg.last_name?.[0]}
                   </div>
-                  <p className="text-sm font-medium">No messages in this thread</p>
+                  <div className="flex-1">
+                    <div className="flex items-baseline gap-2 mb-1">
+                      <span className="font-bold text-sm">{msg.first_name} {msg.last_name}</span>
+                      <span className="text-[10px] font-bold text-blue-500 uppercase px-1.5 py-0.5 bg-blue-50 rounded">{msg.senderRole}</span>
+                      <span className="text-[11px] text-gray-400 ml-auto">{formatTimestamp(msg.created_at)}</span>
+                    </div>
+                    <div className="bg-white p-4 rounded-2xl rounded-tl-none border border-gray-100 shadow-sm text-sm text-gray-600 leading-relaxed">
+                      {msg.message}
+                    </div>
+                  </div>
                 </div>
-              ) : (
-                conversations.map((msg) => (
-                  <div key={msg.message_id} className="flex gap-4 group">
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-sm font-bold text-white shadow-md">
-                      {getInitials(msg.first_name, msg.last_name)}
-                    </div>
-                    <div className="flex-1">
-                      <div className="flex items-baseline gap-2 mb-1">
-                        <span className="font-bold text-gray-900 text-sm">{msg.first_name} {msg.last_name}</span>
-                        <span className="text-[10px] font-bold text-blue-500 uppercase px-1.5 py-0.5 bg-blue-50 rounded">
-                          {msg.senderRole}
-                        </span>
-                        <span className="text-[11px] text-gray-400 ml-auto">{formatTimestamp(msg.created_at)}</span>
-                      </div>
-                      <div className="bg-white p-4 rounded-2xl rounded-tl-none border border-gray-100 shadow-sm text-sm text-gray-600 leading-relaxed">
-                        {msg.message}
-                      </div>
-                    </div>
-                  </div>
-                ))
-              )}
+              ))}
               <div ref={messagesEndRef} />
             </div>
 
             <div className="p-4 bg-white border-t">
-              <div className="relative flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-2xl p-2 focus-within:ring-2 focus-within:ring-blue-500 transition-all">
+              <div className="flex items-center gap-2 bg-gray-50 border rounded-2xl p-2 focus-within:ring-2 focus-within:ring-blue-500 transition-all">
                 <input
                   type="text"
                   placeholder="Type a reply..."
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
-                  className="flex-1 bg-transparent border-none px-4 py-2 text-sm outline-none focus:ring-0"
+                  className="flex-1 bg-transparent px-4 py-2 text-sm outline-none"
                 />
-                <button
-                  onClick={handleSendMessage}
-                  className="bg-blue-600 text-white p-2.5 rounded-xl hover:bg-blue-700 transition-colors shadow-lg shadow-blue-200"
-                >
+                <button onClick={handleSendMessage} className="bg-blue-600 text-white p-2.5 rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all">
                   <Send size={18} />
                 </button>
               </div>

@@ -217,22 +217,45 @@ export const updatePriority = async (req, res) => {
     if (!priority_id) return res.status(400).json({ message: "priority_id is required" });
 
     // Update ticket
-    await db.query("UPDATE tickets SET priority_id = ?, updated_at = CURRENT_TIMESTAMP WHERE ticket_id = ?", [priority_id, ticket_id]);
+    const [result] = await db.query(
+      "UPDATE tickets SET priority_id = ?, updated_at = CURRENT_TIMESTAMP WHERE ticket_id = ?", 
+      [priority_id, ticket_id]
+    );
 
-    // Fetch updated ticket priority name
+    if (result.affectedRows === 0) return res.status(404).json({ message: "Ticket not found" });
+
+    // Fetch updated ticket info with joins for the frontend list
     const [[ticket]] = await db.query(`
-      SELECT p.priority_name
+      SELECT 
+        t.ticket_id,
+        t.ticket_number,
+        t.subject,
+        CONCAT(creator.first_name, ' ', creator.last_name) AS created_by,
+        CONCAT(assignee.first_name, ' ', assignee.last_name) AS assigned_to,
+        s.status_name AS status,
+        p.priority_name AS priority,
+        c.category_name AS category,
+        t.updated_at
       FROM tickets t
+      LEFT JOIN users creator ON t.created_by = creator.employee_id
+      LEFT JOIN users assignee ON t.assigned_to = assignee.employee_id
+      LEFT JOIN ticket_status s ON t.status_id = s.status_id
       LEFT JOIN priorities p ON t.priority_id = p.priority_id
+      LEFT JOIN categories c ON t.category_id = c.category_id
       WHERE t.ticket_id = ?
     `, [ticket_id]);
 
-    // Emit socket event
-    io.emit("ticket:priorityUpdated", { ticket_id, priority_name: ticket.priority_name });
+    // 🔔 Emit event to all clients - matching the frontend listener
+    io.emit("ticket:priorityUpdated", ticket);
 
-    res.json({ message: "Priority updated successfully", ticket_id });
+    res.json({ 
+      message: "Priority updated successfully", 
+      ticket_number: ticket.ticket_number,
+      priority: ticket.priority 
+    });
+
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: "Failed to update priority" });
+    console.error("Update priority error:", err);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 };
