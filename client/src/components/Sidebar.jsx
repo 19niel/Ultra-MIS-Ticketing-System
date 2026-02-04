@@ -37,7 +37,7 @@ export default function Sidebar({ role }) {
 
   const employeeNavItems = [
     { icon: LayoutDashboard, label: "Dashboard", to: "/employee" },
-    { icon: Ticket, label: "My Tickets", to: "/employee/tickets" },
+    { icon: Ticket, label: "My Tickets", to: "/employee/mytickets" },
     { icon: MessageSquare, label: "New Ticket", to: "/employee/new" },
     { icon: FileText, label: "Knowledge Base", to: "/employee/kb" },
     { icon: Settings, label: "Settings", to: "/employee/settings" },
