@@ -36,15 +36,30 @@ export const createMessage = async (req, res) => {
       [ticket_id, user_id, message]
     );
 
-    const newId = result ? result.insertId : null;
+    const newId = result.insertId;
 
-    // 🔔 Emit the new message via socket
-    const io = req.app.get("io"); // make sure your server sets io in app
+    // 🔍 FETCH USER DETAILS TO ENRICH THE SOCKET EMIT
+    // This solves the "User" and "Member" placeholder issue
+    const [userDetails] = await db.query(
+      `SELECT u.first_name, u.last_name, r.role_name as senderRole 
+       FROM users u 
+       JOIN roles r ON u.role_id = r.role_id 
+       WHERE u.user_id = ?`,
+      [user_id]
+    );
+
+    const user = userDetails[0];
+
+    // 🔔 Emit the FULL message object via socket
+    const io = req.app.get("io");
     io.emit("ticket:message:new", {
       ticket_id,
       message_id: newId,
       user_id,
       message,
+      first_name: user.first_name,    // Now included!
+      last_name: user.last_name,      // Now included!
+      senderRole: user.senderRole,    // Now included!
       created_at: new Date(),
     });
 

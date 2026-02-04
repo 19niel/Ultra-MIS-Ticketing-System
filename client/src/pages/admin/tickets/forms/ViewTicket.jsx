@@ -2,16 +2,14 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { X, Send, Clock, User, UserCog, Tag, MessageSquare, Info, CheckCircle2, UserPlus, AlertCircle } from "lucide-react";
 import { STATUS_MAP, PRIORITY_MAP, CATEGORY_MAP, STATUS_COLOR, PRIORITY_COLOR } from "../mapping";
 import { toast } from "sonner";
-// import { socket } from "../../../../socket"; // Uncomment if using socket
+import { socket } from "../../../../socket"; // 1. Socket is now active
 
 const STATUS_ID_TO_NAME = { 1: "Open", 2: "In Progress", 3: "On Hold", 4: "Resolved", 5: "Closed", 6: "Failed" };
 const PRIORITY_ID_TO_NAME = { 1: "Low", 2: "Medium", 3: "High", 4: "Urgent" }; 
 const BASE_URL = "http://localhost:3000/api/tickets";
 
 export default function ViewTicket({ ticket, onClose, userRole }) {
-  // New State for Logged In User
   const [currentUser, setCurrentUser] = useState(null);
-
   const [newMessage, setNewMessage] = useState("");
   const [displayStatus, setDisplayStatus] = useState(ticket.status);
   const [displayPriority, setDisplayPriority] = useState(ticket.priority);
@@ -21,20 +19,39 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
   const [supportUsers, setSupportUsers] = useState([]);
 
   const messagesEndRef = useRef(null);
-
-  // Toggle States
   const [editingStatus, setEditingStatus] = useState(false);
   const [editingPriority, setEditingPriority] = useState(false);
   const [editingAssignee, setEditingAssignee] = useState(false);
-
-  // Form States
   const [selectedStatusId, setSelectedStatusId] = useState("");
   const [selectedPriorityId, setSelectedPriorityId] = useState("");
   const [selectedAssigneeId, setSelectedAssigneeId] = useState("");
 
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
 
-  // 1. Fetch Current User (Like in Header.jsx)
+  // 2. SOCKET LISTENER FOR REAL-TIME UPDATES
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleIncomingMessage = (data) => {
+      if (data.ticket_id === ticket.ticket_id) {
+        setConversations((prev) => {
+          const isDuplicate = prev.some(m => m.message_id === data.message_id);
+          if (isDuplicate) return prev;
+
+          // Since the backend now sends names and roles, 
+          // we just use the incoming data directly!
+          return [...prev, data]; 
+        });
+      }
+    };
+
+    socket.on("ticket:message:new", handleIncomingMessage);
+
+    return () => {
+      socket.off("ticket:message:new", handleIncomingMessage);
+    };
+  }, [ticket.ticket_id]);
+
   useEffect(() => {
     const fetchCurrentUser = async () => {
       try {
@@ -102,14 +119,8 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
     }
   };
 
-  // 2. Updated Send Message to use currentUser.user_id
   const handleSendMessage = async () => {
-    if (!newMessage.trim()) return;
-    
-    if (!currentUser) {
-      toast.error("You must be logged in to reply");
-      return;
-    }
+    if (!newMessage.trim() || !currentUser) return;
 
     try {
       const res = await fetch(`${BASE_URL}/messages`, {
@@ -117,13 +128,13 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ticket_id: ticket.ticket_id,
-          user_id: currentUser.user_id, // Dynamics: uses the ID of whoever is logged in
+          user_id: currentUser.user_id,
           message: newMessage,
         }),
       });
       if (!res.ok) throw new Error();
       setNewMessage("");
-      fetchMessages();
+      // fetchMessages(); // Optional: Socket will now handle the UI update
     } catch (err) {
       toast.error("Failed to send message");
     }
@@ -251,7 +262,7 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
               {loadingMessages ? (
                 <div className="text-center py-10 text-gray-400">Loading...</div>
               ) : conversations.map((msg) => (
-                <div key={msg.message_id} className="flex gap-4">
+                <div key={msg.message_id || Math.random()} className="flex gap-4">
                   <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white font-bold shadow-sm flex-shrink-0">
                     {msg.first_name?.[0]}{msg.last_name?.[0]}
                   </div>
