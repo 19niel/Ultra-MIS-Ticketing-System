@@ -6,6 +6,9 @@ import { getAllTickets,
         getSupportUsers,
         updateAssignment } from "../../controllers/admin/ticketController.js";
 
+import { getTicketMessages,
+         createMessage} from "../../controllers/admin/messageController.js";
+
 const router = express.Router();
 
 // order matters!
@@ -16,4 +19,7 @@ router.put("/status/:ticket_id", changeTicketStatus);
 router.get("/support-users", getSupportUsers);
 router.put("/assign/:ticket_id", updateAssignment);
 
+// Ticket Messages
+router.get("/:ticket_id/messages", getTicketMessages);
+router.post("/messages", createMessage);
 export default router;
