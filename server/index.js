@@ -36,9 +36,17 @@ app.get("/api/health", (req, res) => {
 });
 
 // Routes
+
+// Admin routes
 app.use("/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/tickets", ticketRoutes);
+
+
+// Employee routes
+
+// Tech Support routes
+
 
 const PORT = process.env.PORT ;
 

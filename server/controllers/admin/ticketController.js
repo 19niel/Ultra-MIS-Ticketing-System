@@ -90,3 +90,101 @@ export const changeTicketStatus = async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 };
+
+export const getLatestTicketNumber = async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      "SELECT ticket_number FROM tickets ORDER BY ticket_id DESC LIMIT 1"
+    );
+
+    const latestTicketNumber = rows.length ? rows[0].ticket_number : "TKT-0000000";
+
+    res.json({ latestTicketNumber });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+
+export const createTicket = async (req, res) => {
+  try {
+    const {
+      ticket_number,
+      subject,
+      description,
+      created_by,
+      assigned_to,
+      status_id,
+      priority_id,
+      category_id,
+      closed_at_id,
+    } = req.body;
+
+    const sql = `
+      INSERT INTO tickets (
+        ticket_number,
+        subject,
+        description,
+        created_by,
+        assigned_to,
+        status_id,
+        priority_id,
+        category_id,
+        closed_at
+      )
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    const values = [
+      ticket_number,
+      subject,
+      description,
+      created_by,
+      assigned_to,
+      status_id,     // 👈 mapped to status_id
+      priority_id,   // 👈 mapped to priority_id
+      category_id,   // 👈 mapped to category_id
+      closed_at_id,
+    ];
+
+    const [result] = await db.query(sql, values);
+
+    res.status(201).json({
+      message: "Ticket created successfully",
+      ticket_id: result.insertId,
+      ticket_number,
+    });
+  } catch (err) {
+    console.error("Create ticket error:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
+
+
+export const getSupportUsers = async (req, res) => {
+  try {
+    // role_id 2 = IT Support/Tech Support
+    const [rows] = await db.query(
+      "SELECT employee_id, first_name, last_name FROM users WHERE role_id = 2"
+    );
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
+
+export const updateAssignment = async (req, res) => {
+  const { ticket_id } = req.params;
+  const { assigned_to } = req.body; // employee_id
+
+  try {
+    await db.query(
+      "UPDATE tickets SET assigned_to = ? WHERE ticket_id = ?",
+      [assigned_to, ticket_id]
+    );
+    res.json({ message: "Assignment updated" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+};
