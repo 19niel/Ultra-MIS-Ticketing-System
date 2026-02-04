@@ -29,23 +29,32 @@ export const getTicketMessages = async (req, res) => {
 // Save a new message
 export const createMessage = async (req, res) => {
   const { ticket_id, user_id, message } = req.body;
-  
+
   try {
     const [result] = await db.query(
       "INSERT INTO ticket_messages (ticket_id, user_id, message) VALUES (?, ?, ?)",
       [ticket_id, user_id, message]
     );
 
-    // Add a check to prevent crashing if result is weird
     const newId = result ? result.insertId : null;
-    
-    res.json({ 
-      success: true, 
-      message_id: newId,    
-      message: "Message sent" 
+
+    // 🔔 Emit the new message via socket
+    const io = req.app.get("io"); // make sure your server sets io in app
+    io.emit("ticket:message:new", {
+      ticket_id,
+      message_id: newId,
+      user_id,
+      message,
+      created_at: new Date(),
+    });
+
+    res.json({
+      success: true,
+      message_id: newId,
+      message: "Message sent",
     });
   } catch (err) {
-    console.error("DATABASE ERROR:", err); // Look at your VS Code Terminal!
+    console.error("DATABASE ERROR:", err);
     res.status(500).json({ error: err.sqlMessage || err.message });
   }
 };

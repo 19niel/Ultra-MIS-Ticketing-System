@@ -8,6 +8,7 @@ import {
   PRIORITY_COLOR,
 } from "../mapping";
 import { toast } from "sonner";
+import { socket } from "../../../../socket";
 
 const STATUS_ID_TO_NAME = {
   1: "Open", 2: "In Progress", 3: "On Hold", 4: "Resolved", 5: "Closed", 6: "Failed",
@@ -26,6 +27,10 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
   const [editingStatus, setEditingStatus] = useState(false);
   const [selectedStatusId, setSelectedStatusId] = useState("");
 
+// States for Priority editing
+const [editingPriority, setEditingPriority] = useState(false);
+const [selectedPriorityId, setSelectedPriorityId] = useState("");
+
   // States for Assignee editing
   const [editingAssignee, setEditingAssignee] = useState(false);
   const [supportUsers, setSupportUsers] = useState([]);
@@ -35,6 +40,7 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
+  
 
   useEffect(() => {
     setDisplayStatus(ticket.status);
@@ -46,6 +52,67 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
   useEffect(() => {
     scrollToBottom();
   }, [conversations]);
+
+  useEffect(() => {
+    // Handler for new messages
+    const handleNewMessage = (msg) => {
+      if (msg.ticket_id === ticket.ticket_id) {
+        setConversations((prev) => [
+          ...prev,
+          {
+            message_id: msg.message_id,
+            message: msg.message,
+            created_at: msg.created_at,
+            user_id: msg.user_id,
+            first_name: msg.first_name || "Someone",
+            last_name: msg.last_name || "",
+            senderRole: msg.senderRole || "User",
+          },
+        ]);
+      }
+    };
+
+    // Handler for assignee updates
+    const handleAssigneeUpdate = (data) => {
+      if (data.ticket_id === ticket.ticket_id) {
+        const chosenUser = supportUsers.find(u => u.employee_id === data.assigned_to);
+        setDisplayAssignee(chosenUser ? `${chosenUser.first_name} ${chosenUser.last_name}` : "Unassigned");
+      }
+    };
+
+    // Handler for priority updates
+  const handlePriorityUpdate = async () => {
+    if (!selectedPriorityId) return;
+    try {
+      const res = await fetch(`http://localhost:3000/api/tickets/priority/${ticket.ticket_id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ priority_id: selectedPriorityId }),
+      });
+      if (!res.ok) throw new Error();
+
+      const chosenPriority = PRIORITY_MAP[selectedPriorityId]; 
+      setDisplayPriority(chosenPriority);
+      setEditingPriority(false);
+      toast.success("Priority updated");
+    } catch (err) {
+      toast.error("Priority update failed");
+    }
+  };
+
+    // Listen for socket events
+    socket.on("ticket:message:new", handleNewMessage);
+    socket.on("ticket:assignee:updated", handleAssigneeUpdate);
+    socket.on("ticket:priorityUpdated", handlePriorityUpdate);
+
+    return () => {
+      socket.off("ticket:message:new", handleNewMessage);
+      socket.off("ticket:assignee:updated", handleAssigneeUpdate);
+      socket.off("ticket:priorityUpdated", handlePriorityUpdate);
+    };
+  }, [ticket.ticket_id, supportUsers]);
+
+
 
   const fetchMessages = async () => {
     try {
