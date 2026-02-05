@@ -244,7 +244,7 @@ export const getSupportUsers = async (req, res) => {
 
 export const updateAssignment = async (req, res) => {
   const { ticket_id } = req.params;
-  const { assigned_to } = req.body;
+  const { assigned_to } = req.body; // This is the employee_id
 
   try {
     await db.query(
@@ -252,15 +252,24 @@ export const updateAssignment = async (req, res) => {
       [assigned_to, ticket_id]
     );
 
-    // 🔔 Emit the assignment change
+    // Fetch the name of the new assignee to send to the frontend
+    const [[assignee]] = await db.query(
+      "SELECT first_name, last_name FROM users WHERE employee_id = ?",
+      [assigned_to]
+    );
+
+    const fullName = assignee ? `${assignee.first_name} ${assignee.last_name}` : "Unassigned";
+
+    // 🔔 Emit the assignment change with the name
     const io = req.app.get("io");
-    io.emit("ticket:assignee:updated", {
-      ticket_id,
-      assigned_to, // employee_id
+    io.emit("ticket:assigneeUpdated", {
+      ticket_id: parseInt(ticket_id),
+      assigned_to: fullName, 
     });
 
-    res.json({ message: "Assignment updated" });
+    res.json({ message: "Assignment updated", assigned_to: fullName });
   } catch (err) {
+    console.error("Update assignment error:", err);
     res.status(500).json({ error: err.message });
   }
 };

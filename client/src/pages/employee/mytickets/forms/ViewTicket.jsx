@@ -1,11 +1,9 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { X, Send, Clock, User, UserCog, Tag, MessageSquare, Info, CheckCircle2, UserPlus, AlertCircle } from "lucide-react";
+import { X, Send, Clock, User, UserCog, Tag, MessageSquare, Info, CheckCircle2, AlertCircle } from "lucide-react";
 import { STATUS_MAP, PRIORITY_MAP, CATEGORY_MAP, STATUS_COLOR, PRIORITY_COLOR } from "../mapping";
 import { toast } from "sonner";
-import { socket } from "../../../../socket"; // 1. Socket is now active
+import { socket } from "../../../../socket"; 
 
-const STATUS_ID_TO_NAME = { 1: "Open", 2: "In Progress", 3: "On Hold", 4: "Resolved", 5: "Closed", 6: "Failed" };
-const PRIORITY_ID_TO_NAME = { 1: "Low", 2: "Medium", 3: "High", 4: "Urgent" }; 
 const BASE_URL = "http://localhost:3000/api/tickets";
 
 export default function ViewTicket({ ticket, onClose, userRole }) {
@@ -16,19 +14,11 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
   const [displayAssignee, setDisplayAssignee] = useState(ticket.assigned_to);
   const [conversations, setConversations] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(true);
-  const [supportUsers, setSupportUsers] = useState([]);
 
   const messagesEndRef = useRef(null);
-  const [editingStatus, setEditingStatus] = useState(false);
-  const [editingPriority, setEditingPriority] = useState(false);
-  const [editingAssignee, setEditingAssignee] = useState(false);
-  const [selectedStatusId, setSelectedStatusId] = useState("");
-  const [selectedPriorityId, setSelectedPriorityId] = useState("");
-  const [selectedAssigneeId, setSelectedAssigneeId] = useState("");
-
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
 
-  // 2. SOCKET LISTENER FOR REAL-TIME UPDATES
+  // SOCKET LISTENERS
   useEffect(() => {
     if (!socket) return;
 
@@ -37,18 +27,36 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
         setConversations((prev) => {
           const isDuplicate = prev.some(m => m.message_id === data.message_id);
           if (isDuplicate) return prev;
-
-          // Since the backend now sends names and roles, 
-          // we just use the incoming data directly!
           return [...prev, data]; 
         });
       }
     };
 
+    const handleStatusUpdate = (data) => {
+      if (data.ticket_id === ticket.ticket_id) setDisplayStatus(data.status);
+    };
+
+    const handlePriorityUpdate = (data) => {
+      if (data.ticket_id === ticket.ticket_id) setDisplayPriority(data.priority);
+    };
+
+    // 🔔 REAL-TIME ASSIGNEE UPDATER
+    const handleAssigneeUpdate = (data) => {
+      if (parseInt(data.ticket_id) === parseInt(ticket.ticket_id)) {
+        setDisplayAssignee(data.assigned_to);
+      }
+    };
+
     socket.on("ticket:message:new", handleIncomingMessage);
+    socket.on("ticket:statusUpdated", handleStatusUpdate);
+    socket.on("ticket:priorityUpdated", handlePriorityUpdate);
+    socket.on("ticket:assigneeUpdated", handleAssigneeUpdate);
 
     return () => {
       socket.off("ticket:message:new", handleIncomingMessage);
+      socket.off("ticket:statusUpdated", handleStatusUpdate);
+      socket.off("ticket:priorityUpdated", handlePriorityUpdate);
+      socket.off("ticket:assigneeUpdated", handleAssigneeUpdate);
     };
   }, [ticket.ticket_id]);
 
@@ -88,36 +96,9 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
     setDisplayPriority(ticket.priority);
     setDisplayAssignee(ticket.assigned_to);
     fetchMessages();
-    
-    fetch(`${BASE_URL}/support-users`)
-      .then(res => res.json())
-      .then(data => setSupportUsers(data))
-      .catch(err => console.error(err));
   }, [ticket, fetchMessages]);
 
   useEffect(() => { scrollToBottom(); }, [conversations]);
-
-  const handleUpdate = async (type, body, successCallback) => {
-    try {
-      const endpoints = {
-        status: `${BASE_URL}/status/${ticket.ticket_id}`,
-        priority: `${BASE_URL}/priority/${ticket.ticket_id}`,
-        assign: `${BASE_URL}/assign/${ticket.ticket_id}`,
-      };
-
-      const res = await fetch(endpoints[type], {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
-      });
-
-      if (!res.ok) throw new Error();
-      successCallback();
-      toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} updated`);
-    } catch (err) {
-      toast.error(`Update failed`);
-    }
-  };
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !currentUser) return;
@@ -134,7 +115,6 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
       });
       if (!res.ok) throw new Error();
       setNewMessage("");
-      // fetchMessages(); // Optional: Socket will now handle the UI update
     } catch (err) {
       toast.error("Failed to send message");
     }
@@ -160,46 +140,20 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
         </div>
 
         <div className="flex flex-1 overflow-hidden">
-          {/* LEFT COLUMN: TICKET INFO */}
+          {/* LEFT COLUMN: TICKET INFO (READ ONLY) */}
           <div className="hidden md:flex w-1/3 border-r flex-col bg-gray-50/50 p-6 space-y-8 overflow-y-auto text-left">
             <section>
               <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3 block">Status & Priority</label>
               <div className="space-y-3">
-                {!editingStatus ? (
-                  <div onClick={() => setEditingStatus(true)} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer hover:shadow-md transition-all ${STATUS_COLOR[displayStatus?.toLowerCase()] || 'bg-gray-100'}`}>
-                    <span className="text-sm font-bold uppercase">{STATUS_MAP[displayStatus?.toLowerCase()] || displayStatus}</span>
-                    <CheckCircle2 size={14} className="opacity-60" />
-                  </div>
-                ) : (
-                  <div className="space-y-2 animate-in slide-in-from-top-1 duration-200">
-                    <select value={selectedStatusId} onChange={(e) => setSelectedStatusId(e.target.value)} className="w-full text-sm border-2 border-blue-500 rounded-xl px-3 py-2 outline-none">
-                      <option value="">Change status...</option>
-                      {Object.entries(STATUS_ID_TO_NAME).map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-                    </select>
-                    <div className="flex gap-2">
-                      <button onClick={() => handleUpdate('status', { status_id: selectedStatusId }, () => { setDisplayStatus(STATUS_ID_TO_NAME[selectedStatusId]); setEditingStatus(false); })} className="flex-1 bg-blue-600 text-white text-xs py-2 rounded-lg font-bold">Save</button>
-                      <button onClick={() => setEditingStatus(false)} className="flex-1 bg-gray-200 text-gray-600 text-xs py-2 rounded-lg font-bold">Cancel</button>
-                    </div>
-                  </div>
-                )}
+                <div className={`flex items-center justify-between p-3 rounded-xl border ${STATUS_COLOR[displayStatus?.toLowerCase()] || 'bg-gray-100'}`}>
+                  <span className="text-sm font-bold uppercase">{STATUS_MAP[displayStatus?.toLowerCase()] || displayStatus}</span>
+                  <CheckCircle2 size={14} className="opacity-60" />
+                </div>
 
-                {!editingPriority ? (
-                  <div onClick={() => setEditingPriority(true)} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer hover:shadow-md transition-all ${PRIORITY_COLOR[displayPriority?.toLowerCase()] || 'bg-gray-100'}`}>
-                    <span className="text-sm font-bold uppercase">{PRIORITY_MAP[displayPriority?.toLowerCase()] || displayPriority} Priority</span>
-                    <AlertCircle size={14} className="opacity-60" />
-                  </div>
-                ) : (
-                  <div className="space-y-2 animate-in slide-in-from-top-1 duration-200">
-                    <select value={selectedPriorityId} onChange={(e) => setSelectedPriorityId(e.target.value)} className="w-full text-sm border-2 border-blue-500 rounded-xl px-3 py-2 outline-none">
-                      <option value="">Change priority...</option>
-                      {Object.entries(PRIORITY_ID_TO_NAME).map(([id, name]) => <option key={id} value={id}>{name}</option>)}
-                    </select>
-                    <div className="flex gap-2">
-                      <button onClick={() => handleUpdate('priority', { priority_id: selectedPriorityId }, () => { setDisplayPriority(PRIORITY_ID_TO_NAME[selectedPriorityId]); setEditingPriority(false); })} className="flex-1 bg-blue-600 text-white text-xs py-2 rounded-lg font-bold">Save</button>
-                      <button onClick={() => setEditingPriority(false)} className="flex-1 bg-gray-200 text-gray-600 text-xs py-2 rounded-lg font-bold">Cancel</button>
-                    </div>
-                  </div>
-                )}
+                <div className={`flex items-center justify-between p-3 rounded-xl border ${PRIORITY_COLOR[displayPriority?.toLowerCase()] || 'bg-gray-100'}`}>
+                  <span className="text-sm font-bold uppercase">{PRIORITY_MAP[displayPriority?.toLowerCase()] || displayPriority} Priority</span>
+                  <AlertCircle size={14} className="opacity-60" />
+                </div>
               </div>
             </section>
 
@@ -218,26 +172,10 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
 
                 <div className="flex justify-between items-start">
                   <span className="text-gray-500 flex items-center gap-2 mt-1"><UserCog size={14}/> Assignee</span>
-                  {!editingAssignee ? (
-                    <button onClick={() => setEditingAssignee(true)} className="text-blue-600 hover:underline font-medium flex items-center gap-1">
-                      {displayAssignee || "Unassigned"} <UserPlus size={12} />
-                    </button>
-                  ) : (
-                    <div className="flex flex-col gap-2 w-1/2">
-                      <select value={selectedAssigneeId} onChange={(e) => setSelectedAssigneeId(e.target.value)} className="w-full text-xs border rounded-lg px-2 py-1 outline-none">
-                        <option value="">Select IT...</option>
-                        {supportUsers.map(u => <option key={u.employee_id} value={u.employee_id}>{u.first_name} {u.last_name}</option>)}
-                      </select>
-                      <div className="flex gap-1">
-                        <button onClick={() => handleUpdate('assign', { assigned_to: selectedAssigneeId }, () => {
-                          const user = supportUsers.find(u => u.employee_id === selectedAssigneeId);
-                          setDisplayAssignee(`${user.first_name} ${user.last_name}`);
-                          setEditingAssignee(false);
-                        })} className="flex-1 bg-blue-600 text-white text-[10px] py-1 rounded">Save</button>
-                        <button onClick={() => setEditingAssignee(false)} className="flex-1 bg-gray-200 text-gray-600 text-[10px] py-1 rounded">X</button>
-                      </div>
-                    </div>
-                  )}
+                  {/* READ ONLY REAL-TIME ASSIGNEE */}
+                  <span className="font-medium text-gray-800">
+                    {displayAssignee || "Unassigned"}
+                  </span>
                 </div>
 
                 <div className="flex justify-between">

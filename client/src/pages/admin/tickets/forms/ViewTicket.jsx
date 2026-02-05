@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { X, Send, Clock, User, UserCog, Tag, MessageSquare, Info, CheckCircle2, UserPlus, AlertCircle } from "lucide-react";
 import { STATUS_MAP, PRIORITY_MAP, CATEGORY_MAP, STATUS_COLOR, PRIORITY_COLOR } from "../mapping";
 import { toast } from "sonner";
-import { socket } from "../../../../socket"; // 1. Socket is now active
+import { socket } from "../../../../socket"; 
 
 const STATUS_ID_TO_NAME = { 1: "Open", 2: "In Progress", 3: "On Hold", 4: "Resolved", 5: "Closed", 6: "Failed" };
 const PRIORITY_ID_TO_NAME = { 1: "Low", 2: "Medium", 3: "High", 4: "Urgent" }; 
@@ -28,29 +28,62 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
 
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
 
-  // 2. SOCKET LISTENER FOR REAL-TIME UPDATES
-  useEffect(() => {
-    if (!socket) return;
+  // 🔔 COMBINED REAL-TIME SOCKET LISTENERS
+useEffect(() => {
+  if (!socket) {
+    console.error("Socket connection not found!");
+    return;
+  }
 
-    const handleIncomingMessage = (data) => {
-      if (data.ticket_id === ticket.ticket_id) {
-        setConversations((prev) => {
-          const isDuplicate = prev.some(m => m.message_id === data.message_id);
-          if (isDuplicate) return prev;
+  const handleIncomingMessage = (data) => {
+    // Use == to allow string/number comparison
+    if (data.ticket_id == ticket.ticket_id) {
+      setConversations((prev) => {
+        const isDuplicate = prev.some(m => m.message_id === data.message_id);
+        if (isDuplicate) return prev;
+        return [...prev, data]; 
+      });
+    }
+  };
 
-          // Since the backend now sends names and roles, 
-          // we just use the incoming data directly!
-          return [...prev, data]; 
-        });
-      }
-    };
+  const handleStatusUpdate = (data) => {
+    console.log("Status update received:", data);
+    if (data.ticket_id == ticket.ticket_id) {
+      // Ensure we map the status if the backend sends an ID instead of a string
+      const newStatus = STATUS_ID_TO_NAME[data.status] || data.status;
+      setDisplayStatus(newStatus);
+    }
+  };
 
-    socket.on("ticket:message:new", handleIncomingMessage);
+  const handlePriorityUpdate = (data) => {
+    console.log("Priority update received:", data);
+    if (data.ticket_id == ticket.ticket_id) {
+      const newPriority = PRIORITY_ID_TO_NAME[data.priority] || data.priority;
+      setDisplayPriority(newPriority);
+    }
+  };
 
-    return () => {
-      socket.off("ticket:message:new", handleIncomingMessage);
-    };
-  }, [ticket.ticket_id]);
+  const handleAssigneeUpdate = (data) => {
+    console.log("Assignee update received:", data);
+    if (data.ticket_id == ticket.ticket_id) {
+      setDisplayAssignee(data.assigned_to);
+    }
+  };
+
+  // Attach listeners
+  socket.on("ticket:message:new", handleIncomingMessage);
+  socket.on("ticket:statusUpdated", handleStatusUpdate);
+  socket.on("ticket:priorityUpdated", handlePriorityUpdate);
+  socket.on("ticket:assigneeUpdated", handleAssigneeUpdate);
+
+  return () => {
+    // Cleanup listeners
+    socket.off("ticket:message:new", handleIncomingMessage);
+    socket.off("ticket:statusUpdated", handleStatusUpdate);
+    socket.off("ticket:priorityUpdated", handlePriorityUpdate);
+    socket.off("ticket:assigneeUpdated", handleAssigneeUpdate);
+  };
+}, [ticket.ticket_id]);
 
   useEffect(() => {
     const fetchCurrentUser = async () => {
@@ -134,7 +167,6 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
       });
       if (!res.ok) throw new Error();
       setNewMessage("");
-      // fetchMessages(); // Optional: Socket will now handle the UI update
     } catch (err) {
       toast.error("Failed to send message");
     }
@@ -144,7 +176,7 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
 
   return (
     <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-0 sm:p-4">
-      <div className="bg-white w-full max-w-6xl h-full sm:h-[85vh] sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+      <div className="bg-white w-full max-w-6xl h-full sm:h-[85vh] sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200 text-left">
         
         {/* TOP BAR */}
         <div className="px-6 py-4 border-b flex items-center justify-between bg-white text-left">
@@ -161,7 +193,7 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
 
         <div className="flex flex-1 overflow-hidden">
           {/* LEFT COLUMN: TICKET INFO */}
-          <div className="hidden md:flex w-1/3 border-r flex-col bg-gray-50/50 p-6 space-y-8 overflow-y-auto text-left">
+          <div className="hidden md:flex w-1/3 border-r flex-col bg-gray-50/50 p-6 space-y-8 overflow-y-auto">
             <section>
               <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3 block">Status & Priority</label>
               <div className="space-y-3">
@@ -219,7 +251,7 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
                 <div className="flex justify-between items-start">
                   <span className="text-gray-500 flex items-center gap-2 mt-1"><UserCog size={14}/> Assignee</span>
                   {!editingAssignee ? (
-                    <button onClick={() => setEditingAssignee(true)} className="text-blue-600 hover:underline font-medium flex items-center gap-1">
+                    <button onClick={() => setEditingAssignee(true)} className="text-blue-600 hover:underline font-medium flex items-center gap-1 text-right">
                       {displayAssignee || "Unassigned"} <UserPlus size={12} />
                     </button>
                   ) : (
@@ -258,7 +290,7 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
               <MessageSquare size={16} /> Conversation Activity
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50/30 text-left">
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50/30">
               {loadingMessages ? (
                 <div className="text-center py-10 text-gray-400">Loading...</div>
               ) : conversations.map((msg) => (
