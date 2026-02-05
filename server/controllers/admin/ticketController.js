@@ -2,35 +2,92 @@ import { db } from "../../db.js";
 
 export const getAllTickets = async (req, res) => {
   try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = (page - 1) * limit;
+    const search = req.query.search || "";
+    const status = req.query.status || "all";
+    const priority = req.query.priority || "all";
+    const dateRange = req.query.dateRange || "all"; // Added this
+
+    let whereClauses = [];
+    let params = [];
+
+    // 1. Search Logic
+    if (search) {
+      whereClauses.push("(t.ticket_number LIKE ? OR t.subject LIKE ? OR creator.first_name LIKE ?)");
+      const searchVal = `%${search}%`;
+      params.push(searchVal, searchVal, searchVal);
+    }
+
+    // 2. Status Logic
+    if (status !== "all") {
+      whereClauses.push("s.status_name = ?");
+      params.push(status);
+    }
+
+    // 3. Priority Logic
+    if (priority !== "all") {
+      whereClauses.push("p.priority_name = ?");
+      params.push(priority);
+    }
+
+    // 4. Date Range Logic (NEW)
+    if (dateRange !== "all") {
+      if (dateRange === "today") {
+        whereClauses.push("t.created_at >= CURDATE()");
+      } else if (dateRange === "week") {
+        whereClauses.push("t.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)");
+      } else if (dateRange === "month") {
+        whereClauses.push("t.created_at >= DATE_SUB(NOW(), INTERVAL 1 MONTH)");
+      }
+    }
+
+    const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(" AND ")}` : "";
+
+    // 5. Get Total Count (Fixed JOINs here)
+    // IMPORTANT: You must JOIN s and p here if you filter by them
+    const [countRows] = await db.query(`
+      SELECT COUNT(*) as total FROM tickets t
+      LEFT JOIN users creator ON t.created_by = creator.employee_id
+      LEFT JOIN ticket_status s ON t.status_id = s.status_id
+      LEFT JOIN priorities p ON t.priority_id = p.priority_id
+      ${whereSql}
+    `, params);
+
+    const totalTickets = countRows[0].total;
+
+    // 6. Get Paginated Data
     const [rows] = await db.query(`
       SELECT
-        t.ticket_id,
-        t.ticket_number,
-        t.subject,
-        t.description,
+        t.ticket_id, t.ticket_number, t.subject, t.description,
         CONCAT(creator.first_name, ' ', creator.last_name) AS created_by,
         CONCAT(assignee.first_name, ' ', assignee.last_name) AS assigned_to,
-        s.status_name AS status,
-        p.priority_name AS priority,
-        c.category_name AS category,
-        t.closed_at,
-        t.created_at,
-        t.updated_at
+        s.status_name AS status, p.priority_name AS priority,
+        c.category_name AS category, t.closed_at, t.created_at, t.updated_at
       FROM tickets t
       LEFT JOIN users creator ON t.created_by = creator.employee_id
       LEFT JOIN users assignee ON t.assigned_to = assignee.employee_id
       LEFT JOIN ticket_status s ON t.status_id = s.status_id
       LEFT JOIN priorities p ON t.priority_id = p.priority_id
       LEFT JOIN categories c ON t.category_id = c.category_id
+      ${whereSql}
       ORDER BY t.created_at DESC
-    `);
+      LIMIT ? OFFSET ?
+    `, [...params, limit, offset]);
 
-    res.json(rows);
+    res.json({
+      tickets: rows,
+      totalTickets,
+      totalPages: Math.ceil(totalTickets / limit),
+      currentPage: page
+    });
   } catch (err) {
-    console.error(err);
+    console.error("SQL Error:", err); // Log the specific error
     res.status(500).json({ message: "Failed to fetch tickets" });
   }
 };
+
 
 // 🔔 Socket-Enabled Status Update
 export const changeTicketStatus = async (req, res) => {
