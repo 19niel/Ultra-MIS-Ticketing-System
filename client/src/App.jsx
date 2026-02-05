@@ -15,7 +15,8 @@ import AdminUsers from "./pages/admin/users/Users"
 // Employee
 import EmployeeLayout from "./pages/employee/EmployeeLayout";
 import EmployeeDashboard from "./pages/employee/dashboard/Dashboard";
-import EmployeeTickets from "./pages/employee/mytickets/Tickets"
+import EmployeeTickets from "./pages/employee/mytickets/Tickets";
+import EmployeeNewTickets from "./pages/employee/newtickets/NewTickets";
 
 // Tech Support
 import TechSupportLayout from "./pages/techsupport/TechSupportLayout";
@@ -72,6 +73,8 @@ export default function App() {
         >
           <Route index element={<EmployeeDashboard />} />
           <Route path="mytickets" element={<EmployeeTickets/>} />
+          <Route path="newtickets" element={<EmployeeNewTickets/>} />
+
         </Route>
 
 

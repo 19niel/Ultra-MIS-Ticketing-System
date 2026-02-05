@@ -18,7 +18,7 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
   const [loadingMessages, setLoadingMessages] = useState(true);
   const [supportUsers, setSupportUsers] = useState([]);
 
-  const messagesEndRef = useRef(null);
+  // Edit States
   const [editingStatus, setEditingStatus] = useState(false);
   const [editingPriority, setEditingPriority] = useState(false);
   const [editingAssignee, setEditingAssignee] = useState(false);
@@ -26,81 +26,75 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
   const [selectedPriorityId, setSelectedPriorityId] = useState("");
   const [selectedAssigneeId, setSelectedAssigneeId] = useState("");
 
+  const messagesEndRef = useRef(null);
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
 
-  // 🔔 COMBINED REAL-TIME SOCKET LISTENERS
-useEffect(() => {
-  if (!socket) {
-    console.error("Socket connection not found!");
-    return;
-  }
-
-  const handleIncomingMessage = (data) => {
-    // Use == to allow string/number comparison
-    if (data.ticket_id == ticket.ticket_id) {
-      setConversations((prev) => {
-        const isDuplicate = prev.some(m => m.message_id === data.message_id);
-        if (isDuplicate) return prev;
-        return [...prev, data]; 
-      });
-    }
-  };
-
-  const handleStatusUpdate = (data) => {
-    console.log("Status update received:", data);
-    if (data.ticket_id == ticket.ticket_id) {
-      // Ensure we map the status if the backend sends an ID instead of a string
-      const newStatus = STATUS_ID_TO_NAME[data.status] || data.status;
-      setDisplayStatus(newStatus);
-    }
-  };
-
-  const handlePriorityUpdate = (data) => {
-    console.log("Priority update received:", data);
-    if (data.ticket_id == ticket.ticket_id) {
-      const newPriority = PRIORITY_ID_TO_NAME[data.priority] || data.priority;
-      setDisplayPriority(newPriority);
-    }
-  };
-
-  const handleAssigneeUpdate = (data) => {
-    console.log("Assignee update received:", data);
-    if (data.ticket_id == ticket.ticket_id) {
-      setDisplayAssignee(data.assigned_to);
-    }
-  };
-
-  // Attach listeners
-  socket.on("ticket:message:new", handleIncomingMessage);
-  socket.on("ticket:statusUpdated", handleStatusUpdate);
-  socket.on("ticket:priorityUpdated", handlePriorityUpdate);
-  socket.on("ticket:assigneeUpdated", handleAssigneeUpdate);
-
-  return () => {
-    // Cleanup listeners
-    socket.off("ticket:message:new", handleIncomingMessage);
-    socket.off("ticket:statusUpdated", handleStatusUpdate);
-    socket.off("ticket:priorityUpdated", handlePriorityUpdate);
-    socket.off("ticket:assigneeUpdated", handleAssigneeUpdate);
-  };
-}, [ticket.ticket_id]);
-
+  // SOCKET LISTENERS
   useEffect(() => {
-    const fetchCurrentUser = async () => {
-      try {
-        const res = await fetch("http://localhost:3000/auth/me", {
-          method: "GET",
-          credentials: "include",
+    if (!socket) return;
+
+    const handleIncomingMessage = (data) => {
+      if (data.ticket_id == ticket.ticket_id) {
+        setConversations((prev) => {
+          const isDuplicate = prev.some(m => m.message_id === data.message_id);
+          if (isDuplicate) return prev;
+          return [...prev, data]; 
         });
-        if (res.ok) {
-          const data = await res.json();
-          setCurrentUser(data.user);
-        }
-      } catch (err) {
-        console.error("Failed to fetch current user session:", err);
       }
     };
-    fetchCurrentUser();
+
+    const handleStatusUpdate = (data) => {
+      if (data.ticket_id == ticket.ticket_id) {
+        setDisplayStatus(STATUS_ID_TO_NAME[data.status] || data.status);
+      }
+    };
+
+    const handlePriorityUpdate = (data) => {
+      if (data.ticket_id == ticket.ticket_id) {
+        setDisplayPriority(PRIORITY_ID_TO_NAME[data.priority] || data.priority);
+      }
+    };
+
+    const handleAssigneeUpdate = (data) => {
+      if (data.ticket_id == ticket.ticket_id) {
+        // Try to find the name in our support list for better UI
+        const user = supportUsers.find(u => u.employee_id == data.assigned_to);
+        setDisplayAssignee(user ? `${user.first_name} ${user.last_name}` : data.assigned_to);
+      }
+    };
+
+    socket.on("ticket:message:new", handleIncomingMessage);
+    socket.on("ticket:statusUpdated", handleStatusUpdate);
+    socket.on("ticket:priorityUpdated", handlePriorityUpdate);
+    socket.on("ticket:assigneeUpdated", handleAssigneeUpdate);
+
+    return () => {
+      socket.off("ticket:message:new", handleIncomingMessage);
+      socket.off("ticket:statusUpdated", handleStatusUpdate);
+      socket.off("ticket:priorityUpdated", handlePriorityUpdate);
+      socket.off("ticket:assigneeUpdated", handleAssigneeUpdate);
+    };
+  }, [ticket.ticket_id, supportUsers]);
+
+  // INITIAL DATA FETCH
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      try {
+        const [meRes, supportRes] = await Promise.all([
+          fetch("http://localhost:3000/auth/me", { credentials: "include" }),
+          fetch(`${BASE_URL}/support-users`)
+        ]);
+        if (meRes.ok) {
+          const data = await meRes.json();
+          setCurrentUser(data.user);
+        }
+        if (supportRes.ok) {
+          const data = await supportRes.json();
+          setSupportUsers(data);
+        }
+      } catch (err) { console.error(err); }
+    };
+    fetchInitialData();
   }, []);
 
   const fetchMessages = useCallback(async () => {
@@ -109,11 +103,8 @@ useEffect(() => {
       const res = await fetch(`${BASE_URL}/${ticket.ticket_id}/messages`);
       const data = await res.json();
       setConversations(data);
-    } catch (err) {
-      console.error("Failed to fetch messages", err);
-    } finally {
-      setLoadingMessages(false);
-    }
+    } catch (err) { console.error(err); } 
+    finally { setLoadingMessages(false); }
   }, [ticket.ticket_id]);
 
   useEffect(() => {
@@ -121,15 +112,11 @@ useEffect(() => {
     setDisplayPriority(ticket.priority);
     setDisplayAssignee(ticket.assigned_to);
     fetchMessages();
-    
-    fetch(`${BASE_URL}/support-users`)
-      .then(res => res.json())
-      .then(data => setSupportUsers(data))
-      .catch(err => console.error(err));
   }, [ticket, fetchMessages]);
 
   useEffect(() => { scrollToBottom(); }, [conversations]);
 
+  // UPDATE HANDLER
   const handleUpdate = async (type, body, successCallback) => {
     try {
       const endpoints = {
@@ -154,7 +141,6 @@ useEffect(() => {
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !currentUser) return;
-
     try {
       const res = await fetch(`${BASE_URL}/messages`, {
         method: "POST",
@@ -167,16 +153,14 @@ useEffect(() => {
       });
       if (!res.ok) throw new Error();
       setNewMessage("");
-    } catch (err) {
-      toast.error("Failed to send message");
-    }
+    } catch (err) { toast.error("Failed to send message"); }
   };
 
   const formatTimestamp = (ts) => ts ? new Date(ts).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "N/A";
 
   return (
     <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-0 sm:p-4">
-      <div className="bg-white w-full max-w-6xl h-full sm:h-[85vh] sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200 text-left">
+      <div className="bg-white w-full max-w-6xl h-full sm:h-[85vh] sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
         
         {/* TOP BAR */}
         <div className="px-6 py-4 border-b flex items-center justify-between bg-white text-left">
@@ -193,10 +177,11 @@ useEffect(() => {
 
         <div className="flex flex-1 overflow-hidden">
           {/* LEFT COLUMN: TICKET INFO */}
-          <div className="hidden md:flex w-1/3 border-r flex-col bg-gray-50/50 p-6 space-y-8 overflow-y-auto">
+          <div className="hidden md:flex w-1/3 border-r flex-col bg-gray-50/50 p-6 space-y-8 overflow-y-auto text-left">
             <section>
               <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3 block">Status & Priority</label>
               <div className="space-y-3">
+                {/* STATUS EDIT */}
                 {!editingStatus ? (
                   <div onClick={() => setEditingStatus(true)} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer hover:shadow-md transition-all ${STATUS_COLOR[displayStatus?.toLowerCase()] || 'bg-gray-100'}`}>
                     <span className="text-sm font-bold uppercase">{STATUS_MAP[displayStatus?.toLowerCase()] || displayStatus}</span>
@@ -204,7 +189,7 @@ useEffect(() => {
                   </div>
                 ) : (
                   <div className="space-y-2 animate-in slide-in-from-top-1 duration-200">
-                    <select value={selectedStatusId} onChange={(e) => setSelectedStatusId(e.target.value)} className="w-full text-sm border-2 border-blue-500 rounded-xl px-3 py-2 outline-none">
+                    <select value={selectedStatusId} onChange={(e) => setSelectedStatusId(e.target.value)} className="w-full text-sm border-2 border-blue-500 rounded-xl px-3 py-2 outline-none bg-white">
                       <option value="">Change status...</option>
                       {Object.entries(STATUS_ID_TO_NAME).map(([id, name]) => <option key={id} value={id}>{name}</option>)}
                     </select>
@@ -215,6 +200,7 @@ useEffect(() => {
                   </div>
                 )}
 
+                {/* PRIORITY EDIT */}
                 {!editingPriority ? (
                   <div onClick={() => setEditingPriority(true)} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer hover:shadow-md transition-all ${PRIORITY_COLOR[displayPriority?.toLowerCase()] || 'bg-gray-100'}`}>
                     <span className="text-sm font-bold uppercase">{PRIORITY_MAP[displayPriority?.toLowerCase()] || displayPriority} Priority</span>
@@ -222,7 +208,7 @@ useEffect(() => {
                   </div>
                 ) : (
                   <div className="space-y-2 animate-in slide-in-from-top-1 duration-200">
-                    <select value={selectedPriorityId} onChange={(e) => setSelectedPriorityId(e.target.value)} className="w-full text-sm border-2 border-blue-500 rounded-xl px-3 py-2 outline-none">
+                    <select value={selectedPriorityId} onChange={(e) => setSelectedPriorityId(e.target.value)} className="w-full text-sm border-2 border-blue-500 rounded-xl px-3 py-2 outline-none bg-white">
                       <option value="">Change priority...</option>
                       {Object.entries(PRIORITY_ID_TO_NAME).map(([id, name]) => <option key={id} value={id}>{name}</option>)}
                     </select>
@@ -248,6 +234,7 @@ useEffect(() => {
                   <span className="font-medium">{ticket.created_by}</span>
                 </div>
 
+                {/* ASSIGNEE EDIT */}
                 <div className="flex justify-between items-start">
                   <span className="text-gray-500 flex items-center gap-2 mt-1"><UserCog size={14}/> Assignee</span>
                   {!editingAssignee ? (
@@ -256,14 +243,14 @@ useEffect(() => {
                     </button>
                   ) : (
                     <div className="flex flex-col gap-2 w-1/2">
-                      <select value={selectedAssigneeId} onChange={(e) => setSelectedAssigneeId(e.target.value)} className="w-full text-xs border rounded-lg px-2 py-1 outline-none">
+                      <select value={selectedAssigneeId} onChange={(e) => setSelectedAssigneeId(e.target.value)} className="w-full text-xs border rounded-lg px-2 py-1 outline-none bg-white">
                         <option value="">Select IT...</option>
                         {supportUsers.map(u => <option key={u.employee_id} value={u.employee_id}>{u.first_name} {u.last_name}</option>)}
                       </select>
                       <div className="flex gap-1">
                         <button onClick={() => handleUpdate('assign', { assigned_to: selectedAssigneeId }, () => {
-                          const user = supportUsers.find(u => u.employee_id === selectedAssigneeId);
-                          setDisplayAssignee(`${user.first_name} ${user.last_name}`);
+                          const user = supportUsers.find(u => u.employee_id == selectedAssigneeId);
+                          setDisplayAssignee(user ? `${user.first_name} ${user.last_name}` : "Unassigned");
                           setEditingAssignee(false);
                         })} className="flex-1 bg-blue-600 text-white text-[10px] py-1 rounded">Save</button>
                         <button onClick={() => setEditingAssignee(false)} className="flex-1 bg-gray-200 text-gray-600 text-[10px] py-1 rounded">X</button>
@@ -290,7 +277,7 @@ useEffect(() => {
               <MessageSquare size={16} /> Conversation Activity
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50/30">
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50/30 text-left">
               {loadingMessages ? (
                 <div className="text-center py-10 text-gray-400">Loading...</div>
               ) : conversations.map((msg) => (
