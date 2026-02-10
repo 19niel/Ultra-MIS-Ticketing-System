@@ -16,29 +16,40 @@ export default function Tickets() {
   const [totalStats, setTotalStats] = useState({ totalPages: 1, totalTickets: 0 });
 
   // 1. Fetch function: Sends all filters to the Backend
-  const fetchTickets = async () => {
-    try {
-      const query = new URLSearchParams({
-        page,
-        limit: 10,
-        search: search.trim(),
-        status: statusFilter,
-        priority: priorityFilter,
-        dateRange: dateFilter 
-      }).toString();
+ const fetchTickets = async () => {
+  try {
+    // 1. Changed localStorage to sessionStorage
+    const userString = sessionStorage.getItem("user"); 
+    if (!userString) return;
 
-      const res = await fetch(`http://localhost:3000/api/tickets?${query}`);
-      const data = await res.json();
-      
-      setTickets(data.tickets || []);
-      setTotalStats({ 
-        totalPages: data.totalPages || 1, 
-        totalTickets: data.totalTickets || 0 
-      });
-    } catch (err) {
-      console.error("Failed to fetch tickets", err);
-    }
-  };
+    const userData = JSON.parse(userString);
+    const myEmployeeId = userData.employee_id; 
+
+    // 2. Debugging log (Optional but helpful)
+    console.log("Session Debug - Fetching for ID:", myEmployeeId);
+
+    const query = new URLSearchParams({
+      empId: myEmployeeId,
+      page: page,
+      limit: 10,
+      search: search.trim(),
+      status: statusFilter,
+      priority: priorityFilter,
+      dateRange: dateFilter 
+    }).toString();
+
+    const res = await fetch(`http://localhost:3000/api/employee/tickets?${query}`);
+    const data = await res.json();
+    
+    setTickets(data.tickets || []);
+    setTotalStats({ 
+      totalPages: data.totalPages || 1, 
+      totalTickets: data.totalTickets || 0 
+    });
+  } catch (err) {
+    console.error("Failed to fetch tickets", err);
+  }
+};
 
   // 2. Reset Page Effect: When filters change, always go back to page 1
   useEffect(() => {

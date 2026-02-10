@@ -10,6 +10,8 @@ import authRoutes from "./routes/admin/authRoutes.js";
 import userRoutes from "./routes/admin/userRoutes.js";
 import ticketRoutes from "./routes/admin/ticketRoutes.js";
 
+import empTicketRoutes from "./routes/employee/empTicketRoutes.js"
+
 dotenv.config();
 
 const app = express();
@@ -45,6 +47,8 @@ app.get("/api/health", (req, res) => {
 app.use("/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/tickets", ticketRoutes);
+
+app.use("/api/employee/tickets", empTicketRoutes);
 
 // 🔔 Socket.IO connection
 io.on("connection", (socket) => {
