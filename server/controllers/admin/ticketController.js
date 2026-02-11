@@ -157,8 +157,7 @@ export const changeTicketStatus = async (req, res) => {
 // 🔔 Socket-Enabled Ticket Creation
 export const createTicket = async (req, res) => {
   try {
-    const io = req.app.get("io"); // Get socket.io instance
-
+    const io = req.app.get("io");
     const {
       ticket_number,
       subject,
@@ -168,6 +167,8 @@ export const createTicket = async (req, res) => {
       status_id,
       priority_id,
       category_id,
+      department_id,
+      branch_id,
       closed_at_id,
     } = req.body;
 
@@ -175,35 +176,36 @@ export const createTicket = async (req, res) => {
       INSERT INTO tickets (
         ticket_number, subject, description,
         created_by, assigned_to, status_id, priority_id,
-        category_id, closed_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
+        category_id, department_id, branch_id, closed_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`; // 11 placeholders for 11 columns
 
     const values = [
       ticket_number,
       subject,
       description,
       created_by,
-      assigned_to,
+      assigned_to || null,
       status_id,
       priority_id,
       category_id,
-      closed_at_id ?? null,
+      department_id,
+      branch_id,
+      closed_at_id || null,
     ];
 
     const [result] = await db.query(sql, values);
 
-    // Fetch full ticket info for frontend
+    // Fetch full ticket info for frontend (Fixed the Branch Join)
     const [[newTicket]] = await db.query(`
       SELECT 
-        t.ticket_id,
-        t.ticket_number,
-        t.subject,
+        t.ticket_id, t.ticket_number, t.subject,
         CONCAT(creator.first_name, ' ', creator.last_name) AS created_by,
         CONCAT(assignee.first_name, ' ', assignee.last_name) AS assigned_to,
         s.status_name AS status,
         p.priority_name AS priority,
         c.category_name AS category,
+        d.department_name AS department,
+        b.branch_name AS branch,
         t.created_at
       FROM tickets t
       LEFT JOIN users creator ON t.created_by = creator.employee_id
@@ -211,18 +213,14 @@ export const createTicket = async (req, res) => {
       LEFT JOIN ticket_status s ON t.status_id = s.status_id
       LEFT JOIN priorities p ON t.priority_id = p.priority_id
       LEFT JOIN categories c ON t.category_id = c.category_id
+      LEFT JOIN departments d ON t.department_id = d.department_id
+      LEFT JOIN branches b ON t.branch_id = b.branch_id
       WHERE t.ticket_id = ?
     `, [result.insertId]);
 
-    // 🔔 Emit event
-    io.emit("ticket:new", newTicket);
+    if (io) io.emit("ticket:new", newTicket);
 
-    res.status(201).json({
-      message: "Ticket created successfully",
-      ticket_id: result.insertId,
-      ticket_number,
-    });
-
+    res.status(201).json({ message: "Ticket created successfully", ticket_id: result.insertId });
   } catch (err) {
     console.error("Create ticket error:", err);
     res.status(500).json({ error: err.message });

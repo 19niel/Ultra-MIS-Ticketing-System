@@ -54,14 +54,12 @@ export default function NewTicket() {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsSubmitting(true);
+      e.preventDefault();
+      setIsSubmitting(true);
 
     try {
-      // Use the userData state fetched from the /me endpoint
       if (!userData?.employee_id) {
         toast.error("User session invalid. Please login again.");
-        setIsSubmitting(false);
         return;
       }
 
@@ -73,16 +71,18 @@ export default function NewTicket() {
         description: form.description,
         created_by: userData.employee_id,
         assigned_to: null,
-        status_id: 1, // Open
+        status_id: 1, 
         priority_id: Number(form.priority_id),
         category_id: Number(form.category_id),
+        department_id: Number(form.department_id), // Added
+        branch_id: Number(form.branch_id),         // Added
         closed_at_id: null,
       };
 
       const res = await fetch("http://localhost:3000/api/tickets", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        credentials: "include", // Required to verify session on POST
+        credentials: "include", 
         body: JSON.stringify(ticketPayload),
       });
 
@@ -145,6 +145,29 @@ export default function NewTicket() {
                 <option value="1">Low</option>
                 <option value="2">Medium</option>
                 <option value="3">High</option>
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Department</label>
+              <select name="department_id" value={form.department_id} onChange={handleChange} className="w-full border rounded px-3 py-2" required>
+                <option value="">Department</option>
+                <option value="1">MIS</option>
+                <option value="2">HR</option>
+                <option value="3">Sales</option>
+                <option value="4">Finance</option>
+                <option value="5">Manager</option>
+                <option value="6">FSD</option>
+              </select>
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-sm font-medium">Branch</label>
+              <select name="branch_id" value={form.branch_id} onChange={handleChange} className="w-full border rounded px-3 py-2" required>
+                <option value="">Select priority</option>
+                <option value="1">Head Office Angono</option>
+                <option value="2">Pet Plans Guadalupe</option>
+                <option value="3">Sucat Office</option>
               </select>
             </div>
           </div>
