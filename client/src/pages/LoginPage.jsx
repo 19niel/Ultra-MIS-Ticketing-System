@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { User, Lock } from "lucide-react";
 
 export default function LoginPage() {
@@ -116,6 +116,15 @@ export default function LoginPage() {
             {loading ? "Signing in..." : "Sign In"}
           </button>
         </form>
+
+        <div className="mt-6 text-center">
+          <p className="text-sm text-gray-600">
+            Don't have an account?{" "}
+            <Link to="/register" className="text-blue-600 font-bold hover:underline">
+              Create an Account
+            </Link>
+          </p>
+        </div>
 
         <h3 className="text-xs text-gray-400 mt-6 text-right">
           Powered by U-BIX Corporation MIS Department

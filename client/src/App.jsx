@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
+import RegisterPage from "./pages/RegisterPage";
 import ProtectedRoute from "./utils/ProtectedRoute";
 
 // Admin
@@ -28,6 +29,8 @@ export default function App() {
       <Routes>
         {/* Public */}
         <Route path="/" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+      
 
         {/* ADMIN (role_id = 1) */}
         <Route
