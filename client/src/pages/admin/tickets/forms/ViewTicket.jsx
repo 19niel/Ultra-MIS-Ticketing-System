@@ -1,8 +1,14 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { X, Send, Clock, User, UserCog, Tag, MessageSquare, Info, CheckCircle2, UserPlus, AlertCircle } from "lucide-react";
+import { 
+  X, Send, Clock, User, UserCog, Tag, MessageSquare, 
+  Info, CheckCircle2, UserPlus, AlertCircle, Building2, MapPin 
+} from "lucide-react";
 import { STATUS_MAP, PRIORITY_MAP, STATUS_COLOR, PRIORITY_COLOR, CATEGORY_MAP } from "../../../../mapping/ticketMapping";
 import { toast } from "sonner";
 import { socket } from "../../../../socket"; 
+
+// 1. Import your mappings
+import { DEPARTMENT_MAP, BRANCH_MAP } from "../../../../mapping/userDetailsMapping";
 
 const STATUS_ID_TO_NAME = { 1: "Open", 2: "In Progress", 3: "On Hold", 4: "Resolved", 5: "Closed", 6: "Failed" };
 const PRIORITY_ID_TO_NAME = { 1: "Low", 2: "Medium", 3: "High", 4: "Urgent" }; 
@@ -57,7 +63,6 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
 
     const handleAssigneeUpdate = (data) => {
       if (data.ticket_id == ticket.ticket_id) {
-        // Try to find the name in our support list for better UI
         const user = supportUsers.find(u => u.employee_id == data.assigned_to);
         setDisplayAssignee(user ? `${user.first_name} ${user.last_name}` : data.assigned_to);
       }
@@ -177,11 +182,12 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
 
         <div className="flex flex-1 overflow-hidden">
           {/* LEFT COLUMN: TICKET INFO */}
-          <div className="hidden md:flex w-1/3 border-r flex-col bg-gray-50/50 p-6 space-y-8 overflow-y-auto text-left">
+          <div className=" md:flex w-1/3 border-r flex-col bg-gray-50/50 p-6 space-y-8 overflow-y-auto text-left">
+            
+            {/* STATUS & PRIORITY SECTION */}
             <section>
               <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3 block">Status & Priority</label>
               <div className="space-y-3">
-                {/* STATUS EDIT */}
                 {!editingStatus ? (
                   <div onClick={() => setEditingStatus(true)} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer hover:shadow-md transition-all ${STATUS_COLOR[displayStatus?.toLowerCase()] || 'bg-gray-100'}`}>
                     <span className="text-sm font-bold uppercase">{STATUS_MAP[displayStatus?.toLowerCase()] || displayStatus}</span>
@@ -200,7 +206,6 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
                   </div>
                 )}
 
-                {/* PRIORITY EDIT */}
                 {!editingPriority ? (
                   <div onClick={() => setEditingPriority(true)} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer hover:shadow-md transition-all ${PRIORITY_COLOR[displayPriority?.toLowerCase()] || 'bg-gray-100'}`}>
                     <span className="text-sm font-bold uppercase">{PRIORITY_MAP[displayPriority?.toLowerCase()] || displayPriority} Priority</span>
@@ -221,51 +226,128 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
               </div>
             </section>
 
+            {/* DESCRIPTION SECTION */}
             <section className="bg-blue-50 p-4 rounded-2xl border border-blue-100">
               <h4 className="text-blue-800 text-sm font-bold mb-2 flex items-center gap-2"><Info size={14} /> Description</h4>
               <p className="text-blue-900/70 text-sm leading-relaxed whitespace-pre-wrap">{ticket.description}</p>
             </section>
 
+            {/* NEW: ORIGIN DETAILS (Department & Branch) */}
             <section className="space-y-4">
-              <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest block">Details</label>
-              <div className="space-y-4 text-sm text-gray-800">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-500 flex items-center gap-2"><User size={14}/> Reporter</span>
-                  <span className="font-medium">{ticket.created_by}</span>
-                </div>
-
-                {/* ASSIGNEE EDIT */}
-                <div className="flex justify-between items-start">
-                  <span className="text-gray-500 flex items-center gap-2 mt-1"><UserCog size={14}/> Assignee</span>
-                  {!editingAssignee ? (
-                    <button onClick={() => setEditingAssignee(true)} className="text-blue-600 hover:underline font-medium flex items-center gap-1 text-right">
-                      {displayAssignee || "Unassigned"} <UserPlus size={12} />
-                    </button>
-                  ) : (
-                    <div className="flex flex-col gap-2 w-1/2">
-                      <select value={selectedAssigneeId} onChange={(e) => setSelectedAssigneeId(e.target.value)} className="w-full text-xs border rounded-lg px-2 py-1 outline-none bg-white">
-                        <option value="">Select IT...</option>
-                        {supportUsers.map(u => <option key={u.employee_id} value={u.employee_id}>{u.first_name} {u.last_name}</option>)}
-                      </select>
-                      <div className="flex gap-1">
-                        <button onClick={() => handleUpdate('assign', { assigned_to: selectedAssigneeId }, () => {
-                          const user = supportUsers.find(u => u.employee_id == selectedAssigneeId);
-                          setDisplayAssignee(user ? `${user.first_name} ${user.last_name}` : "Unassigned");
-                          setEditingAssignee(false);
-                        })} className="flex-1 bg-blue-600 text-white text-[10px] py-1 rounded">Save</button>
-                        <button onClick={() => setEditingAssignee(false)} className="flex-1 bg-gray-200 text-gray-600 text-[10px] py-1 rounded">X</button>
-                      </div>
+               <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest block">Source Information</label>
+               <div className="grid grid-cols-1 gap-3">
+                  <div className="flex items-center gap-3 p-3 bg-white border border-gray-100 rounded-xl shadow-sm">
+                    <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-slate-500">
+                      <Building2 size={16} />
                     </div>
-                  )}
+                    <div>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase leading-none mb-1">Department</p>
+                      <p className="text-sm font-bold text-gray-700">{DEPARTMENT_MAP[ticket.department_id] || "N/A"}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-3 p-3 bg-white border border-gray-100 rounded-xl shadow-sm">
+                    <div className="w-8 h-8 bg-slate-100 rounded-lg flex items-center justify-center text-slate-500">
+                      <MapPin size={16} />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-gray-400 font-bold uppercase leading-none mb-1">Office Branch</p>
+                      <p className="text-sm font-bold text-gray-700">{BRANCH_MAP[ticket.branch_id] || "N/A"}</p>
+                    </div>
+                  </div>
+               </div>
+            </section>
+
+            {/* GENERAL DETAILS SECTION */}
+            <section className="space-y-4 pt-4 border-t border-gray-100">
+              <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest block">
+                People & Time
+              </label>
+              <div className="space-y-4 text-sm text-gray-800">
+                
+                {/* Reporter */}
+                <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-1 lg:gap-0">
+                  <span className="text-gray-500 flex items-center gap-2">
+                    <User size={14} className="shrink-0" /> 
+                    <span className="lg:inline font-medium lg:font-normal">Reporter</span>
+                  </span>
+                  <span className="font-bold lg:font-medium text-gray-700 lg:text-gray-900">
+                    {ticket.created_by}
+                  </span>
                 </div>
 
-                <div className="flex justify-between">
-                  <span className="text-gray-500 flex items-center gap-2"><Tag size={14}/> Category</span>
-                  <span className="font-medium">{CATEGORY_MAP[ticket.category?.toLowerCase()] || ticket.category}</span>
+                {/* Assignee */}
+                <div className="flex flex-col lg:flex-row lg:justify-between lg:items-start gap-1 lg:gap-0">
+                  <span className="text-gray-500 flex items-center gap-2 lg:mt-1">
+                    <UserCog size={14} className="shrink-0" /> 
+                    <span className="lg:inline font-medium lg:font-normal">Assignee</span>
+                  </span>
+                  
+                  <div className="w-full lg:w-auto lg:text-right">
+                    {!editingAssignee ? (
+                      <button 
+                        onClick={() => setEditingAssignee(true)} 
+                        className="text-blue-600 hover:underline font-bold lg:font-medium flex items-center gap-1"
+                      >
+                        {displayAssignee || "Unassigned"} <UserPlus size={12} />
+                      </button>
+                    ) : (
+                      <div className="flex flex-col gap-2 w-full lg:min-w-[150px] mt-1 lg:mt-0">
+                        <select 
+                          value={selectedAssigneeId} 
+                          onChange={(e) => setSelectedAssigneeId(e.target.value)} 
+                          className="w-full text-xs border rounded-lg px-2 py-1 outline-none bg-white shadow-sm"
+                        >
+                          <option value="">Select IT...</option>
+                          {supportUsers.map(u => (
+                            <option key={u.employee_id} value={u.employee_id}>
+                              {u.first_name} {u.last_name}
+                            </option>
+                          ))}
+                        </select>
+                        <div className="flex gap-1">
+                          <button 
+                            onClick={() => handleUpdate('assign', { assigned_to: selectedAssigneeId }, () => {
+                              const user = supportUsers.find(u => u.employee_id == selectedAssigneeId);
+                              setDisplayAssignee(user ? `${user.first_name} ${user.last_name}` : "Unassigned");
+                              setEditingAssignee(false);
+                            })} 
+                            className="flex-1 bg-blue-600 text-white text-[10px] py-1 rounded font-bold"
+                          >
+                            Save
+                          </button>
+                          <button 
+                            onClick={() => setEditingAssignee(false)} 
+                            className="flex-1 bg-gray-200 text-gray-600 text-[10px] py-1 rounded font-bold"
+                          >
+                            X
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500 flex items-center gap-2"><Clock size={14}/> Created</span>
-                  <span className="font-medium text-[12px]">{formatTimestamp(ticket.created_at)}</span>
+
+                {/* Category */}
+                <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-1 lg:gap-0">
+                  <span className="text-gray-500 flex items-center gap-2">
+                    <Tag size={14} className="shrink-0" /> 
+                    <span className="lg:inline font-medium lg:font-normal">Category</span>
+                  </span>
+                  <span className="font-bold lg:font-medium text-gray-700 lg:text-gray-900">
+                    {CATEGORY_MAP[ticket.category?.toLowerCase()] || ticket.category}
+                  </span>
+                </div>
+
+                {/* Created */}
+                <div className="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-1 lg:gap-0">
+                  <span className="text-gray-500 flex items-center gap-2">
+                    <Clock size={14} className="shrink-0" /> 
+                    <span className="lg:inline font-medium lg:font-normal">Created</span>
+                  </span>
+                  <span className="font-bold lg:font-medium text-gray-400 lg:text-gray-900 text-xs lg:text-sm">
+                    {formatTimestamp(ticket.created_at)}
+                  </span>
                 </div>
               </div>
             </section>
