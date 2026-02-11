@@ -100,8 +100,8 @@ const AdminDashboard = () => {
       {/* Stats Section */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
         <StatCard icon={<Ticket />} title="My Open Tickets" value="12" color="blue" />
-        <StatCard icon={<CheckCircle />} title="Resolved Today" value="8" color="emerald" />
-        <StatCard icon={<PlusCircle />} title="Tickets Created" value="4" color="amber" />
+        <StatCard icon={<CheckCircle />} title="Resolved Today" value="10" color="emerald" />
+        <StatCard icon={<PlusCircle />} title="Tickets Created" value="50" color="amber" />
       </div>
     </div>
   );

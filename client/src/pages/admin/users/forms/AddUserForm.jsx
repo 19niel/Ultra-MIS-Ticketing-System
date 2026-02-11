@@ -9,6 +9,7 @@ export default function AddUserForm({ isOpen, onClose, onSuccess }) {
     last_name: "",
     position: "",
     department_id: "",
+    branch_id:"",
     role_id: "",
     email: "",
     password: "",
@@ -128,6 +129,19 @@ const handleSubmit = async (e) => {
             <option value="4">Finance</option>
             <option value="5">Manager</option>
             <option value="6">FSD</option>
+          </select>
+
+          <select
+            name="branch_id"
+            value={formData.branch_id}
+            onChange={handleChange}
+            className="w-full border px-3 py-2 rounded"
+            required
+          >
+            <option value="">Select Branch</option>
+            <option value="1">Head Office Angono</option>
+            <option value="2">Pet Plans Guadalupe</option>
+            <option value="3">Sucat Office</option>
           </select>
 
           <select
