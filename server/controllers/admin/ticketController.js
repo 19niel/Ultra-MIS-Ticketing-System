@@ -8,7 +8,7 @@ export const getAllTickets = async (req, res) => {
     const search = req.query.search || "";
     const status = req.query.status || "all";
     const priority = req.query.priority || "all";
-    const dateRange = req.query.dateRange || "all"; // Added this
+    const dateRange = req.query.dateRange || "all";
 
     let whereClauses = [];
     let params = [];
@@ -32,7 +32,7 @@ export const getAllTickets = async (req, res) => {
       params.push(priority);
     }
 
-    // 4. Date Range Logic (NEW)
+    // 4. Date Range Logic
     if (dateRange !== "all") {
       if (dateRange === "today") {
         whereClauses.push("t.created_at >= CURDATE()");
@@ -45,8 +45,7 @@ export const getAllTickets = async (req, res) => {
 
     const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(" AND ")}` : "";
 
-    // 5. Get Total Count (Fixed JOINs here)
-    // IMPORTANT: You must JOIN s and p here if you filter by them
+    // 5. Get Total Count
     const [countRows] = await db.query(`
       SELECT COUNT(*) as total FROM tickets t
       LEFT JOIN users creator ON t.created_by = creator.employee_id
@@ -57,14 +56,26 @@ export const getAllTickets = async (req, res) => {
 
     const totalTickets = countRows[0].total;
 
-    // 6. Get Paginated Data
+    // 6. Get Paginated Data (Updated with Department and Branch IDs)
     const [rows] = await db.query(`
       SELECT
-        t.ticket_id, t.ticket_number, t.subject, t.description,
+        t.ticket_id, 
+        t.ticket_number, 
+        t.subject, 
+        t.description,
         CONCAT(creator.first_name, ' ', creator.last_name) AS created_by,
         CONCAT(assignee.first_name, ' ', assignee.last_name) AS assigned_to,
-        s.status_name AS status, p.priority_name AS priority,
-        c.category_name AS category, t.closed_at, t.created_at, t.updated_at
+        
+        /* Added these two lines to get the IDs for your frontend mapping */
+        creator.department_id, 
+        creator.branch_id,
+        
+        s.status_name AS status, 
+        p.priority_name AS priority,
+        c.category_name AS category, 
+        t.closed_at, 
+        t.created_at, 
+        t.updated_at
       FROM tickets t
       LEFT JOIN users creator ON t.created_by = creator.employee_id
       LEFT JOIN users assignee ON t.assigned_to = assignee.employee_id
@@ -83,7 +94,7 @@ export const getAllTickets = async (req, res) => {
       currentPage: page
     });
   } catch (err) {
-    console.error("SQL Error:", err); // Log the specific error
+    console.error("SQL Error:", err);
     res.status(500).json({ message: "Failed to fetch tickets" });
   }
 };

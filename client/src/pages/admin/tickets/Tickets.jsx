@@ -1,8 +1,15 @@
 import { useState, useEffect } from "react";
-import { Search, Eye, Calendar, User, Tag, Filter, XCircle, ChevronLeft, ChevronRight } from "lucide-react";
+import { 
+  Search, Eye, Calendar, User, Tag, Filter, XCircle, 
+  ChevronLeft, ChevronRight, Building2, MapPin 
+} from "lucide-react";
 import ViewTicket from "./forms/ViewTicket";
-import { STATUS_MAP, PRIORITY_MAP, STATUS_COLOR, PRIORITY_COLOR } from "./../../../mapping/ticketMapping";
+import { STATUS_MAP, PRIORITY_MAP, STATUS_COLOR, PRIORITY_COLOR } from "../../../mapping/ticketMapping";
+import { DEPARTMENT_MAP, BRANCH_MAP } from "../../../mapping/userDetailsMapping"; 
+
 import { socket } from "../../../socket";
+
+// 1. Import your user detail mappings
 
 export default function Tickets() {
   const [tickets, setTickets] = useState([]);
@@ -15,7 +22,7 @@ export default function Tickets() {
   const [page, setPage] = useState(1);
   const [totalStats, setTotalStats] = useState({ totalPages: 1, totalTickets: 0 });
 
-  // 1. Fetch function: Sends all filters to the Backend
+  // Fetch function: Sends all filters to the Backend
   const fetchTickets = async () => {
     try {
       const query = new URLSearchParams({
@@ -40,21 +47,17 @@ export default function Tickets() {
     }
   };
 
-  // 2. Reset Page Effect: When filters change, always go back to page 1
   useEffect(() => {
     setPage(1);
   }, [search, statusFilter, priorityFilter, dateFilter]);
 
-  // 3. Main Data & Socket Effect
   useEffect(() => {
-    // Debounce search to prevent spamming the server
     const delayDebounceFn = setTimeout(() => {
       fetchTickets();
     }, 300);
 
-    // 🔔 REAL-TIME LISTENERS
+    // REAL-TIME LISTENERS
     socket.on("ticket:new", (newTicket) => {
-      // Only show instantly if we are on the first page
       if (page === 1) {
         setTickets((prev) => [newTicket, ...prev].slice(0, 10));
       }
@@ -198,39 +201,66 @@ export default function Tickets() {
       {/* TICKET LIST */}
       <div className="space-y-4">
         {tickets.map((ticket) => (
-          <div key={ticket.ticket_id} className="group bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-blue-200 transition-all duration-200">
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-              <div className="flex-1 space-y-3">
-                <div className="flex items-center gap-3">
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-gray-100 text-gray-500 border border-gray-200">
-                    {ticket.ticket_number}
-                  </span>
-                  <h3 className="text-lg font-bold text-gray-800 group-hover:text-blue-600 transition-colors capitalize">
-                    {ticket.subject}
-                  </h3>
-                </div>
-                <div className="flex flex-wrap items-center gap-y-2 gap-x-6 text-sm text-gray-500">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-blue-600"><User size={12} /></div>
-                    <span>{ticket.created_by}</span>
+          <div key={ticket.ticket_id} className="group bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-blue-200 transition-all duration-200 overflow-hidden">
+            <div className="p-5 space-y-4">
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                <div className="flex-1 space-y-3">
+                  <div className="flex items-center gap-3">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-gray-100 text-gray-500 border border-gray-200 font-mono">
+                      {ticket.ticket_number}
+                    </span>
+                    <h3 className="text-lg font-bold text-gray-800 group-hover:text-blue-600 transition-colors capitalize">
+                      {ticket.subject}
+                    </h3>
                   </div>
-                  <div className="flex items-center gap-1.5"><Tag size={14} className="text-gray-400" /><span>{ticket.category}</span></div>
-                  <div className="flex items-center gap-1.5"><Calendar size={14} className="text-gray-400" /><span>{formatDate(ticket.created_at)}</span></div>
+                  
+                  <div className="flex flex-wrap items-center gap-y-2 gap-x-6 text-sm text-gray-500">
+                    <div className="flex items-center gap-2">
+                      <div className="w-6 h-6 rounded-full bg-blue-50 flex items-center justify-center text-blue-600"><User size={12} /></div>
+                      <span className="font-medium">{ticket.created_by}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-gray-400">
+                      <Tag size={14} />
+                      <span className="text-gray-500">{ticket.category}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 text-gray-400">
+                      <Calendar size={14} />
+                      <span className="text-gray-500">{formatDate(ticket.created_at)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4">
+                  <div className="flex flex-col items-end gap-2">
+                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wide ring-1 ring-inset shadow-sm ${STATUS_COLOR[ticket.status?.toLowerCase()] || "bg-gray-100 text-gray-600 ring-gray-200"}`}>
+                      {STATUS_MAP[ticket.status?.toLowerCase()] || ticket.status}
+                    </span>
+                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wide ring-1 ring-inset shadow-sm ${PRIORITY_COLOR[ticket.priority?.toLowerCase()] || "bg-gray-100 text-gray-600 ring-gray-200"}`}>
+                      {PRIORITY_MAP[ticket.priority?.toLowerCase()] || ticket.priority}
+                    </span>
+                  </div>
+                  <button onClick={() => setSelectedTicket(ticket)} className="flex items-center gap-2 p-2.5 rounded-xl bg-gray-50 text-gray-400 hover:bg-blue-600 hover:text-white transition-all border border-gray-100 group-hover:border-blue-600 shadow-sm">
+                    <Eye size={20} /><span className="hidden sm:inline text-sm font-bold">View</span>
+                  </button>
                 </div>
               </div>
 
-              <div className="flex items-center gap-4">
-                <div className="flex flex-col items-end gap-2">
-                  <span className={`px-3 py-1 rounded-full text-[11px] font-bold ring-1 ring-inset ${STATUS_COLOR[ticket.status?.toLowerCase()] || "bg-gray-100 text-gray-600 ring-gray-200"}`}>
-                    {STATUS_MAP[ticket.status?.toLowerCase()] || ticket.status}
-                  </span>
-                  <span className={`px-3 py-1 rounded-full text-[11px] font-bold ring-1 ring-inset ${PRIORITY_COLOR[ticket.priority?.toLowerCase()] || "bg-gray-100 text-gray-600 ring-gray-200"}`}>
-                    {PRIORITY_MAP[ticket.priority?.toLowerCase()] || ticket.priority}
+              {/* NEW: DEPARTMENT & BRANCH FOOTER */}
+              <div className="pt-4 border-t border-gray-50 flex flex-wrap gap-4 items-center">
+                <div className="flex items-center gap-2 px-2 py-1 bg-slate-50 rounded-lg border border-slate-100">
+                  <Building2 size={14} className="text-slate-400" />
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-tighter">Dept:</span>
+                  <span className="text-[11px] font-bold text-slate-600 uppercase">
+                    {DEPARTMENT_MAP[ticket.department_id] || "Unknown"}
                   </span>
                 </div>
-                <button onClick={() => setSelectedTicket(ticket)} className="flex items-center gap-2 p-2.5 rounded-xl bg-gray-50 text-gray-400 hover:bg-blue-50 hover:text-blue-600 transition-all border border-transparent hover:border-blue-100">
-                  <Eye size={20} /><span className="hidden sm:inline text-sm font-medium">View</span>
-                </button>
+                <div className="flex items-center gap-2 px-2 py-1 bg-slate-50 rounded-lg border border-slate-100">
+                  <MapPin size={14} className="text-slate-400" />
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-tighter">Branch:</span>
+                  <span className="text-[11px] font-bold text-slate-600 uppercase">
+                    {BRANCH_MAP[ticket.branch_id] || "Unknown"}
+                  </span>
+                </div>
               </div>
             </div>
           </div>

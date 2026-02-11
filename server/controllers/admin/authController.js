@@ -34,8 +34,8 @@ export const login = async (req, res) => {
         first_name: user.first_name,
         last_name: user.last_name,
         position: user.position || "", 
-        department: user.department,
-        branch: user.branch
+        department_id: user.department_id,
+        branch_id: user.branch_id
       }),
       {
         httpOnly: true,
@@ -54,8 +54,8 @@ export const login = async (req, res) => {
         role_id: user.role_id,
         employee_id: user.employee_id,
         position: user.position || "",
-        department: user.department,
-        branch: user.branch
+        department_id: user.department_id,
+        branch_id: user.branch_id
       },
     });
   } catch (err) {
