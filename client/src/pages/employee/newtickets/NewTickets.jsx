@@ -9,7 +9,7 @@ export default function NewTicket() {
   const [form, setForm] = useState({
     subject: "",
     category_id: "",
-    priority_id: "",
+    branch_id: "",
     description: "",
   });
 
@@ -74,7 +74,8 @@ export default function NewTicket() {
         created_by: userData.employee_id,
         assigned_to: null,
         status_id: 1, // Open
-        priority_id: Number(form.priority_id),
+        priority_id: 1, // Low
+        branch_id: Number(form.branch_id),
         category_id: Number(form.category_id),
         closed_at_id: null,
       };
@@ -93,7 +94,7 @@ export default function NewTicket() {
       toast.success(`Ticket ${newTicketNumber} created successfully 🎉`);
 
       // Reset form and update latest locally
-      setForm({ subject: "", category_id: "", priority_id: "", description: "" });
+      setForm({ subject: "", category_id: "", branch_id: "", description: "" });
       setLatestTicketNumber(newTicketNumber);
 
     } catch (err) {
@@ -139,12 +140,12 @@ export default function NewTicket() {
             </div>
 
             <div className="space-y-1">
-              <label className="text-sm font-medium">Priority</label>
-              <select name="priority_id" value={form.priority_id} onChange={handleChange} className="w-full border rounded px-3 py-2" required>
+              <label className="text-sm font-medium">Branch</label>
+              <select name="priority_id" value={form.branch_id} onChange={handleChange} className="w-full border rounded px-3 py-2" required>
                 <option value="">Select priority</option>
-                <option value="1">Low</option>
-                <option value="2">Medium</option>
-                <option value="3">High</option>
+                <option value="1">Head Office Angono</option>
+                <option value="2">Pet Plans Guadalupe</option>
+                <option value="3">Sucat Office</option>
               </select>
             </div>
           </div>

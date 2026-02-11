@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Search, Eye, Calendar, User, Tag, Filter, XCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import ViewTicket from "./forms/ViewTicket";
-import { STATUS_MAP, PRIORITY_MAP, STATUS_COLOR, PRIORITY_COLOR } from "./mapping";
+import { STATUS_MAP, PRIORITY_MAP, STATUS_COLOR, PRIORITY_COLOR } from "./../../../mapping/ticketMapping";
 import { socket } from "../../../socket";
 
 export default function Tickets() {

@@ -52,3 +52,51 @@ export const getMyTickets = async (req, res) => {
     res.status(500).json({ message: "Failed to fetch tickets" });
   }
 };
+
+export const empcreateTicket = async (req, res) => {
+  try {
+    const io = req.app.get("io");
+
+    const {
+      ticket_number,
+      subject,
+      description,
+      created_by,
+      assigned_to,
+      status_id,
+      priority_id,
+      category_id,
+      branch_id, // Added branch_id from request body
+      closed_at_id,
+    } = req.body;
+
+    const sql = `
+      INSERT INTO tickets (
+        ticket_number, subject, description,
+        created_by, assigned_to, status_id, priority_id,
+        category_id, branch_id, closed_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+
+    const values = [
+      ticket_number,
+      subject,
+      description,
+      created_by,
+      assigned_to,
+      status_id,
+      priority_id, // This will be the '1' we sent from frontend
+      category_id,
+      branch_id,   // Added to values array
+      closed_at_id ?? null,
+    ];
+
+    const [result] = await db.query(sql, values);
+
+    // ... (keep the SELECT and io.emit logic)
+
+  } catch (err) {
+    console.error("Create ticket error:", err);
+    res.status(500).json({ error: err.message });
+  }
+};

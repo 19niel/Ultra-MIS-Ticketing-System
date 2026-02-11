@@ -1,8 +1,9 @@
 import express from 'express';
-import { getMyTickets } from '../../controllers/employee/empTicketController.js';
+import { getMyTickets, empcreateTicket } from '../../controllers/employee/empTicketController.js';
 
 const router = express.Router();
 
 router.get("/", getMyTickets);
+router.post("/", empcreateTicket);
 
 export default router;

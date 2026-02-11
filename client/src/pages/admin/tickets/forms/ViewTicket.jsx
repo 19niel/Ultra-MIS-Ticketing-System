@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { X, Send, Clock, User, UserCog, Tag, MessageSquare, Info, CheckCircle2, UserPlus, AlertCircle } from "lucide-react";
-import { STATUS_MAP, PRIORITY_MAP, CATEGORY_MAP, STATUS_COLOR, PRIORITY_COLOR } from "../mapping";
+import { STATUS_MAP, PRIORITY_MAP, STATUS_COLOR, PRIORITY_COLOR } from "./../../../mapping/ticketMapping";
 import { toast } from "sonner";
 import { socket } from "../../../../socket"; 
 

@@ -10,7 +10,9 @@
           email,
           position,
           role_id,
-          employee_id
+          employee_id,
+          department_id,
+          branch_id
         FROM users`
       );
 
