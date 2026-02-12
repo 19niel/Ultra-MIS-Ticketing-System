@@ -83,9 +83,9 @@ export default function EditUserForm({ isOpen, onClose, user, onSuccess }) {
           {/* New Branch Dropdown */}
           <select name="branch_id" value={formData.branch_id} onChange={handleChange} className="w-full border px-3 py-2 rounded" required>
             <option value="">Select Branch</option>
-            <option value="1">Main Office</option>
-            <option value="2">Cebu Branch</option>
-            <option value="3">Davao Branch</option>
+            <option value="1">Head Office Angono</option>
+            <option value="2">Pet Plans Guadalupe</option>
+            <option value="3">Sucat Office</option>
           </select>
 
           <select name="role_id" value={formData.role_id} onChange={handleChange} className="w-full border px-3 py-2 rounded" required>

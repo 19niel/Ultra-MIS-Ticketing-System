@@ -12,3 +12,10 @@ export const BRANCH_MAP = {
   2: "Pet Plans Guadalupe",
   3: "Sucat Office"
 };
+
+
+export const ROLE_MAP = {
+  1: "Admin",
+  2: "Tech Support",
+  3: "Employee"
+};
