@@ -127,14 +127,38 @@ export default function Tickets() {
         <div className="flex flex-col sm:flex-row items-center justify-between px-6 py-4 bg-white border border-gray-100 rounded-2xl shadow-sm">
           <div className="flex items-center gap-2 text-sm text-gray-500">
             <span className="flex h-2 w-2 rounded-full bg-blue-500 animate-pulse"></span>
-            Showing <span className="font-bold text-gray-800">{tickets.length}</span> of <span className="font-bold text-gray-800">{totalStats.totalTickets}</span> results
+            {tickets.length > 0 ? (
+              <>
+                Showing <span className="font-bold text-gray-800">
+                  {(page - 1) * 10 + 1}
+                </span> to <span className="font-bold text-gray-800">
+                  {Math.min(page * 10, totalStats.totalTickets)}
+                </span> of{" "}
+                <span className="font-bold text-gray-800">{totalStats.totalTickets}</span> results
+              </>
+            ) : (
+              "No results to show"
+            )}
           </div>
+
           <div className="flex items-center bg-gray-50 p-1 rounded-xl border border-gray-100">
-            <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="px-4 py-2 text-sm font-bold text-gray-600 rounded-lg hover:bg-white disabled:opacity-30">
+            <button 
+              onClick={() => setPage((p) => Math.max(1, p - 1))} 
+              disabled={page === 1} 
+              className="px-4 py-2 text-sm font-bold text-gray-600 rounded-lg hover:bg-white disabled:opacity-30 transition-colors"
+            >
               <ChevronLeft size={16} className="inline mr-1" /> Prev
             </button>
-            <div className="px-4 text-sm font-bold"><span className="text-blue-600">{page}</span> / {totalStats.totalPages}</div>
-            <button onClick={() => setPage((p) => Math.min(totalStats.totalPages, p + 1))} disabled={page === totalStats.totalPages} className="px-4 py-2 text-sm font-bold text-gray-600 rounded-lg hover:bg-white disabled:opacity-30">
+            
+            <div className="px-4 text-sm font-bold border-x border-gray-200">
+              <span className="text-blue-600">{page}</span> / {totalStats.totalPages}
+            </div>
+            
+            <button 
+              onClick={() => setPage((p) => Math.min(totalStats.totalPages, p + 1))} 
+              disabled={page === totalStats.totalPages} 
+              className="px-4 py-2 text-sm font-bold text-gray-600 rounded-lg hover:bg-white disabled:opacity-30 transition-colors"
+            >
               Next <ChevronRight size={16} className="inline ml-1" />
             </button>
           </div>

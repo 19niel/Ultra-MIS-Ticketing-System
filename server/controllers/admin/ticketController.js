@@ -334,3 +334,35 @@ export const updatePriority = async (req, res) => {
     res.status(500).json({ error: "Internal Server Error" });
   }
 };
+
+export const closeTicket = async (req, res) => {
+  const { ticket_id } = req.params;
+  const CLOSED_STATUS_ID = 5; // Matches your STATUS_ID_TO_NAME mapping
+
+  try {
+    const [result] = await db.query(
+      `UPDATE tickets 
+       SET status_id = ?, 
+           closed_at = CURRENT_TIMESTAMP, 
+           updated_at = CURRENT_TIMESTAMP 
+       WHERE ticket_id = ?`,
+      [CLOSED_STATUS_ID, ticket_id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: "Ticket not found" });
+    }
+
+    // Emit socket event so frontend updates "displayStatus" to "Closed"
+    const io = req.app.get("io");
+    io.emit("ticket:statusUpdated", {
+      ticket_id: parseInt(ticket_id),
+      status: "Closed" 
+    });
+
+    res.json({ message: "Ticket closed successfully", closed_at: new Date() });
+  } catch (err) {
+    console.error("Close ticket error:", err);
+    res.status(500).json({ error: err.message });
+  }
+};
