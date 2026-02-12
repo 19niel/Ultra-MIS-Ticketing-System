@@ -35,7 +35,7 @@ const EmployeeDashboard = () => {
         <div className="relative p-8 md:p-10 flex flex-col md:flex-row items-center md:items-start gap-10">
           {/* Avatar Section with Pulse Status */}
           <div className="relative">
-            <div className="w-28 h-28 bg-gradient-to-br from-slate-800 to-slate-900 text-white rounded-[2.5rem] flex items-center justify-center text-4xl font-black shadow-2xl transform transition-transform hover:scale-105 duration-500">
+            <div className="w-28 h-28 bg-blue-600 text-white rounded-[2.5rem] flex items-center justify-center text-4xl font-black shadow-2xl transform transition-transform hover:scale-105 duration-500">
               {user.first_name?.[0]}{user.last_name?.[0]}
             </div>
             {/* Live Status Indicator */}

@@ -66,16 +66,22 @@ export const empcreateTicket = async (req, res) => {
       status_id,
       priority_id,
       category_id,
-      branch_id, // Added branch_id from request body
+      branch_id,
+      department_id, // Added this field
       closed_at_id,
     } = req.body;
+
+    // Verify all mandatory fields are present
+    if (!ticket_number || !subject || !created_by || !branch_id || !department_id) {
+      return res.status(400).json({ error: "Missing required ticket information." });
+    }
 
     const sql = `
       INSERT INTO tickets (
         ticket_number, subject, description,
         created_by, assigned_to, status_id, priority_id,
-        category_id, branch_id, closed_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        category_id, branch_id, department_id, closed_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `;
 
     const values = [
@@ -83,17 +89,25 @@ export const empcreateTicket = async (req, res) => {
       subject,
       description,
       created_by,
-      assigned_to,
-      status_id,
-      priority_id, // This will be the '1' we sent from frontend
+      assigned_to || null,
+      status_id || 1,
+      priority_id || 1, 
       category_id,
-      branch_id,   // Added to values array
-      closed_at_id ?? null,
+      branch_id,   
+      department_id,
+      closed_at_id || null,
     ];
 
     const [result] = await db.query(sql, values);
 
-    // ... (keep the SELECT and io.emit logic)
+    // Fetch the newly created ticket to emit it via Socket.io
+    const [newTicket] = await db.query("SELECT * FROM tickets WHERE id = ?", [result.insertId]);
+
+    if (io) {
+      io.emit("newTicket", newTicket[0]);
+    }
+
+    res.status(201).json({ message: "Ticket created successfully", ticket: newTicket[0] });
 
   } catch (err) {
     console.error("Create ticket error:", err);

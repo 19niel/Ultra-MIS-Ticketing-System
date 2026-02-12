@@ -6,10 +6,7 @@ import {
 import ViewTicket from "./forms/ViewTicket";
 import { STATUS_MAP, PRIORITY_MAP, STATUS_COLOR, PRIORITY_COLOR } from "../../../mapping/ticketMapping";
 import { DEPARTMENT_MAP, BRANCH_MAP } from "../../../mapping/userDetailsMapping"; 
-
 import { socket } from "../../../socket";
-
-// 1. Import your user detail mappings
 
 export default function Tickets() {
   const [tickets, setTickets] = useState([]);
@@ -18,11 +15,9 @@ export default function Tickets() {
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("all");
   const [selectedTicket, setSelectedTicket] = useState(null);
-
   const [page, setPage] = useState(1);
   const [totalStats, setTotalStats] = useState({ totalPages: 1, totalTickets: 0 });
 
-  // Fetch function: Sends all filters to the Backend
   const fetchTickets = async () => {
     try {
       const query = new URLSearchParams({
@@ -47,47 +42,23 @@ export default function Tickets() {
     }
   };
 
-  useEffect(() => {
-    setPage(1);
-  }, [search, statusFilter, priorityFilter, dateFilter]);
+  useEffect(() => { setPage(1); }, [search, statusFilter, priorityFilter, dateFilter]);
 
   useEffect(() => {
-    const delayDebounceFn = setTimeout(() => {
-      fetchTickets();
-    }, 300);
+    const delayDebounceFn = setTimeout(() => { fetchTickets(); }, 300);
 
-    // REAL-TIME LISTENERS
     socket.on("ticket:new", (newTicket) => {
-      if (page === 1) {
-        setTickets((prev) => [newTicket, ...prev].slice(0, 10));
-      }
+      if (page === 1) setTickets((prev) => [newTicket, ...prev].slice(0, 10));
     });
 
     socket.on("ticket:statusUpdated", (updatedTicket) => {
-      setTickets((prev) =>
-        prev.map((t) =>
-          t.ticket_id === updatedTicket.ticket_id
-            ? { ...t, status: updatedTicket.status, updated_at: updatedTicket.updated_at }
-            : t
-        )
-      );
-    });
-
-    socket.on("ticket:priorityUpdated", (updatedTicket) => {
-      setTickets((prev) =>
-        prev.map((t) =>
-          t.ticket_id === updatedTicket.ticket_id
-            ? { ...t, priority: updatedTicket.priority, updated_at: updatedTicket.updated_at }
-            : t
-        )
-      );
+      setTickets((prev) => prev.map((t) => t.ticket_id === updatedTicket.ticket_id ? { ...t, status: updatedTicket.status, updated_at: updatedTicket.updated_at } : t));
     });
 
     return () => {
       clearTimeout(delayDebounceFn);
       socket.off("ticket:new");
       socket.off("ticket:statusUpdated");
-      socket.off("ticket:priorityUpdated");
     };
   }, [page, search, statusFilter, priorityFilter, dateFilter]);
 
@@ -101,9 +72,7 @@ export default function Tickets() {
 
   const formatDate = (dateString) => {
     if (!dateString) return null;
-    return new Date(dateString).toLocaleDateString("en-US", {
-      month: "short", day: "numeric", year: "numeric",
-    });
+    return new Date(dateString).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   };
 
   return (
@@ -114,7 +83,7 @@ export default function Tickets() {
           <p className="text-gray-500 text-sm">Manage and track your active support requests.</p>
         </div>
 
-        {/* SEARCH & FILTERS SECTION */}
+        {/* SEARCH & FILTERS */}
         <div className="flex flex-col md:flex-row gap-4">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
@@ -128,37 +97,23 @@ export default function Tickets() {
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 outline-none focus:border-blue-500 shadow-sm transition-all"
-            >
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 outline-none focus:border-blue-500 shadow-sm transition-all">
               <option value="all">All Status</option>
               <option value="open">Open</option>
               <option value="in progress">In Progress</option>
               <option value="resolved">Resolved</option>
               <option value="closed">Closed</option>
             </select>
-
-            <select
-              value={priorityFilter}
-              onChange={(e) => setPriorityFilter(e.target.value)}
-              className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 outline-none focus:border-blue-500 shadow-sm transition-all"
-            >
+            <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 outline-none focus:border-blue-500 shadow-sm transition-all">
               <option value="all">All Priority</option>
               <option value="low">Low</option>
               <option value="medium">Medium</option>
               <option value="high">High</option>
               <option value="urgent">Urgent</option>
             </select>
-
             <div className="flex items-center gap-2 px-3 py-2.5 bg-blue-50 border border-blue-100 rounded-xl">
               <Filter size={16} className="text-blue-600" />
-              <select
-                value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
-                className="bg-transparent text-sm font-bold text-blue-700 outline-none pr-2"
-              >
+              <select value={dateFilter} onChange={(e) => setDateFilter(e.target.value)} className="bg-transparent text-sm font-bold text-blue-700 outline-none pr-2">
                 <option value="all">All Time</option>
                 <option value="today">Today</option>
                 <option value="week">Last 7 Days</option>
@@ -168,30 +123,18 @@ export default function Tickets() {
           </div>
         </div>
 
-        {/* PAGINATION BAR */}
+        {/* PAGINATION */}
         <div className="flex flex-col sm:flex-row items-center justify-between px-6 py-4 bg-white border border-gray-100 rounded-2xl shadow-sm">
           <div className="flex items-center gap-2 text-sm text-gray-500">
             <span className="flex h-2 w-2 rounded-full bg-blue-500 animate-pulse"></span>
-            Showing <span className="font-bold text-gray-800">{tickets.length}</span> of{" "}
-            <span className="font-bold text-gray-800">{totalStats.totalTickets}</span> results
+            Showing <span className="font-bold text-gray-800">{tickets.length}</span> of <span className="font-bold text-gray-800">{totalStats.totalTickets}</span> results
           </div>
-
           <div className="flex items-center bg-gray-50 p-1 rounded-xl border border-gray-100">
-            <button
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              disabled={page === 1}
-              className="px-4 py-2 text-sm font-bold text-gray-600 rounded-lg hover:bg-white disabled:opacity-30"
-            >
+            <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="px-4 py-2 text-sm font-bold text-gray-600 rounded-lg hover:bg-white disabled:opacity-30">
               <ChevronLeft size={16} className="inline mr-1" /> Prev
             </button>
-            <div className="px-4 text-sm font-bold">
-              <span className="text-blue-600">{page}</span> / {totalStats.totalPages}
-            </div>
-            <button
-              onClick={() => setPage((p) => Math.min(totalStats.totalPages, p + 1))}
-              disabled={page === totalStats.totalPages}
-              className="px-4 py-2 text-sm font-bold text-gray-600 rounded-lg hover:bg-white disabled:opacity-30"
-            >
+            <div className="px-4 text-sm font-bold"><span className="text-blue-600">{page}</span> / {totalStats.totalPages}</div>
+            <button onClick={() => setPage((p) => Math.min(totalStats.totalPages, p + 1))} disabled={page === totalStats.totalPages} className="px-4 py-2 text-sm font-bold text-gray-600 rounded-lg hover:bg-white disabled:opacity-30">
               Next <ChevronRight size={16} className="inline ml-1" />
             </button>
           </div>
@@ -202,21 +145,44 @@ export default function Tickets() {
       <div className="space-y-4">
         {tickets.map((ticket) => (
           <div key={ticket.ticket_id} className="group bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-blue-200 transition-all duration-200 overflow-hidden">
-            <div className="p-5 space-y-4">
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-                <div className="flex-1 space-y-3">
-                  <div className="flex items-center gap-3">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-gray-100 text-gray-500 border border-gray-200 font-mono">
+            <div className="p-5">
+              <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6">
+                <div className="flex-1 space-y-4">
+                  
+                  {/* SINGLE ROW: ID + TITLE + DEPT + BRANCH */}
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-gray-100 text-gray-400 border border-gray-200 font-mono flex-shrink-0">
                       {ticket.ticket_number}
                     </span>
+                    
                     <h3 className="text-lg font-bold text-gray-800 group-hover:text-blue-600 transition-colors capitalize">
                       {ticket.subject}
                     </h3>
+
+                    {/* Location Badges placed immediately after Title */}
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1 px-2 py-0.5 bg-slate-100/50 rounded border border-slate-200/60">
+                        <Building2 size={12} className="text-slate-400" />
+                        <span className="text-[10px] font-bold text-slate-500 uppercase">
+                          {DEPARTMENT_MAP[ticket.department_id] || "Unknown"}
+                        </span>
+                      </div>
+                      
+                      <div className="flex items-center gap-1 px-2 py-0.5 bg-slate-100/50 rounded border border-slate-200/60">
+                        <MapPin size={12} className="text-slate-400" />
+                        <span className="text-[10px] font-bold text-slate-500 uppercase">
+                          {BRANCH_MAP[ticket.branch_id] || "Unknown"}
+                        </span>
+                      </div>
+                    </div>
                   </div>
                   
+                  {/* META INFO (User, Category, Date) */}
                   <div className="flex flex-wrap items-center gap-y-2 gap-x-6 text-sm text-gray-500">
                     <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-blue-50 flex items-center justify-center text-blue-600"><User size={12} /></div>
+                      <div className="w-6 h-6 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
+                        <User size={12} />
+                      </div>
                       <span className="font-medium">{ticket.created_by}</span>
                     </div>
                     <div className="flex items-center gap-1.5 text-gray-400">
@@ -230,6 +196,7 @@ export default function Tickets() {
                   </div>
                 </div>
 
+                {/* RIGHT SIDE: STATUS & ACTIONS */}
                 <div className="flex items-center gap-4">
                   <div className="flex flex-col items-end gap-2">
                     <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wide ring-1 ring-inset shadow-sm ${STATUS_COLOR[ticket.status?.toLowerCase()] || "bg-gray-100 text-gray-600 ring-gray-200"}`}>
@@ -240,46 +207,17 @@ export default function Tickets() {
                     </span>
                   </div>
                   <button onClick={() => setSelectedTicket(ticket)} className="flex items-center gap-2 p-2.5 rounded-xl bg-gray-50 text-gray-400 hover:bg-blue-600 hover:text-white transition-all border border-gray-100 group-hover:border-blue-600 shadow-sm">
-                    <Eye size={20} /><span className="hidden sm:inline text-sm font-bold">View</span>
+                    <Eye size={20} />
+                    <span className="hidden sm:inline text-sm font-bold">View</span>
                   </button>
-                </div>
-              </div>
-
-              {/* NEW: DEPARTMENT & BRANCH FOOTER */}
-              <div className="pt-4 border-t border-gray-50 flex flex-wrap gap-4 items-center">
-                <div className="flex items-center gap-2 px-2 py-1 bg-slate-50 rounded-lg border border-slate-100">
-                  <Building2 size={14} className="text-slate-400" />
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-tighter">Dept:</span>
-                  <span className="text-[11px] font-bold text-slate-600 uppercase">
-                    {DEPARTMENT_MAP[ticket.department_id] || "Unknown"}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2 px-2 py-1 bg-slate-50 rounded-lg border border-slate-100">
-                  <MapPin size={14} className="text-slate-400" />
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-tighter">Branch:</span>
-                  <span className="text-[11px] font-bold text-slate-600 uppercase">
-                    {BRANCH_MAP[ticket.branch_id] || "Unknown"}
-                  </span>
                 </div>
               </div>
             </div>
           </div>
         ))}
-
-        {tickets.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-24 bg-white rounded-3xl border-2 border-dashed border-gray-200">
-            <XCircle className="w-12 h-12 text-gray-200 mb-4" />
-            <p className="text-gray-500 font-medium text-lg">No tickets found</p>
-            <button onClick={clearFilters} className="mt-4 px-6 py-2 bg-blue-600 text-white text-sm font-bold rounded-xl hover:bg-blue-700 transition-all">
-              Clear all filters
-            </button>
-          </div>
-        )}
       </div>
 
-      {selectedTicket && (
-        <ViewTicket ticket={selectedTicket} onClose={() => setSelectedTicket(null)} />
-      )}
+      {selectedTicket && <ViewTicket ticket={selectedTicket} onClose={() => setSelectedTicket(null)} />}
     </div>
   );
 }

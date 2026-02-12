@@ -40,7 +40,7 @@ export default function Profile() {
       <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-6 flex flex-col md:flex-row gap-8">
         {/* Avatar Section */}
         <div className="flex flex-col items-center gap-3">
-          <div className="w-28 h-28 rounded-full bg-blue-600 text-white flex items-center justify-center text-4xl font-bold shadow-inner">
+          <div className="w-28 h-28 bg-blue-600 text-white rounded-[2.5rem] flex items-center justify-center text-4xl font-black shadow-2xl transform transition-transform ">
             {initials || "U"}
           </div>
           <button className="text-xs font-semibold text-blue-600 hover:text-blue-800 transition">

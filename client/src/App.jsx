@@ -21,6 +21,7 @@ import EmployeeTickets from "./pages/employee/mytickets/Tickets";
 import EmployeeNewTickets from "./pages/employee/newtickets/NewTickets";
 import EmployeeSettings from "./pages/employee/settings/Settings"
 import EmployeeProfile from "./pages/employee/profile/Profile"
+import EmployeeKB from "./pages/employee/knowledge_base/KnowledgeBase"
 
 // Tech Support
 import TechSupportLayout from "./pages/techsupport/TechSupportLayout";
@@ -83,6 +84,8 @@ export default function App() {
           <Route path="newtickets" element={<EmployeeNewTickets/>} />
           <Route path="settings" element={<EmployeeSettings/>} />
           <Route path="profile" element={<EmployeeProfile/>} />
+          <Route path="kb" element={<EmployeeKB/>} />
+
 
         </Route>
 
