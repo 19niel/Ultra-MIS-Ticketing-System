@@ -99,7 +99,7 @@ export default function Sidebar({ role }) {
 
           <div className="flex items-center gap-3 p-2 hover:bg-gray-100 rounded cursor-pointer">
           <CopyrightIcon className="w-5 h-5" />
-          {!isCollapsed && <span>All Rights Reserved Talag</span>}
+          {!isCollapsed && <span>All Rights Reserved</span>}
         </div>
       </div>
     </aside>

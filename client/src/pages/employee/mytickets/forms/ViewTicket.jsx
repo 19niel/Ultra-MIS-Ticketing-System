@@ -131,7 +131,7 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
             <div className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-bold border border-blue-100 uppercase tracking-wider">
               {ticket.ticket_number}
             </div>
-            <h2 className="text-lg font-bold text-gray-800 truncate max-w-[300px]">{ticket.subject}</h2>
+            <h2 className="text-lg font-bold text-gray-800 truncate ">{ticket.subject}</h2>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
             <X className="h-5 w-5 text-gray-500" />
