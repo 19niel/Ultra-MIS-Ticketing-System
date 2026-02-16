@@ -184,7 +184,7 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
             <div className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-bold border border-blue-100 uppercase tracking-wider">
               {ticket.ticket_number}
             </div>
-            <h2 className="text-lg font-bold text-gray-800 truncate ">{ticket.subject}</h2>
+            <h2 className="text-lg font-bold text-gray-800 truncate">{ticket.subject}</h2>
           </div>
           
           <div className="flex items-center gap-3">

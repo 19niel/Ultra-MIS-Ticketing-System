@@ -227,6 +227,27 @@ export const createTicket = async (req, res) => {
   }
 };
 
+// 🔔 Socket-Enabled Ticket Creation
+export const getDashboardStats = async (req, res) => {
+  try {
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
+    const [stats] = await db.execute(`
+      SELECT 
+        COUNT(CASE WHEN DATE(created_at) = ? AND status_id IN (1, 2, 3) THEN 1 END) as pending_today,
+        COUNT(CASE WHEN DATE(created_at) = ? THEN 1 END) as total_today,
+        COUNT(CASE WHEN status_id = 4 THEN 1 END) as total_resolved,
+        COUNT(*) as total_created
+      FROM tickets
+    `, [today, today]);
+
+    res.json(stats[0]);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+
 export const getLatestTicketNumber = async (req, res) => {
   try {
     const [rows] = await db.query(
