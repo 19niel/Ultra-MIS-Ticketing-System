@@ -101,7 +101,6 @@ export default function Tickets() {
               <option value="all">All Status</option>
               <option value="open">Open</option>
               <option value="in progress">In Progress</option>
-              <option value="resolved">Resolved</option>
               <option value="closed">Closed</option>
             </select>
             <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)} className="px-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm font-medium text-gray-700 outline-none focus:border-blue-500 shadow-sm transition-all">

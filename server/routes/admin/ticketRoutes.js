@@ -7,6 +7,7 @@ import {
     getLatestTicketNumber,
     getSupportUsers,
     updateAssignment,
+    closeTicket,
     getDashboardStats 
 } from "../../controllers/admin/ticketController.js";
 
@@ -22,6 +23,8 @@ router.get("/latest-number", getLatestTicketNumber);
 
 // 2. Add the summary route here
 router.get("/stats/summary", getDashboardStats); 
+
+router.put("/close/:ticket_id", closeTicket);
 
 router.get("/", getAllTickets);
 router.post("/", createTicket); 

@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Building2, MapPin, User, Ticket, CheckCircle, PlusCircle, Clock, ShieldCheck } from 'lucide-react';
+import { Building2, MapPin, User, Ticket, CheckCircle, PlusCircle, Clock, AlertOctagon } from 'lucide-react';
 import { DEPARTMENT_MAP, BRANCH_MAP } from '../../../mapping/userDetailsMapping'; 
-import { socket } from "../../../socket"; // Ensure this path is correct
+import { socket } from "../../../socket"; 
 
 const AdminDashboard = () => {
   const [user, setUser] = useState(null);
@@ -10,10 +10,11 @@ const AdminDashboard = () => {
     pending_today: 0,
     total_today: 0,
     total_resolved: 0,
+    total_failed: 0, // Added to match system-wide tracking
     total_created: 0
   });
 
-  // Fetch Initial Stats
+  // 1. Memoized fetch function for initial load and socket refreshes
   const fetchStats = useCallback(async () => {
     try {
       const res = await fetch("http://localhost:3000/api/tickets/stats/summary");
@@ -22,49 +23,57 @@ const AdminDashboard = () => {
         setStats(data);
       }
     } catch (err) {
-      console.error("Failed to fetch stats:", err);
+      console.error("Failed to fetch admin stats:", err);
     }
   }, []);
 
   useEffect(() => {
+    // Initial User Setup
     const storedUser = sessionStorage.getItem("user");
     if (storedUser) setUser(JSON.parse(storedUser));
 
+    // Greeting Logic
     const hour = new Date().getHours();
     if (hour < 12) setGreeting("Good Morning");
     else if (hour < 18) setGreeting("Good Afternoon");
     else setGreeting("Good Evening");
 
+    // Load initial stats
     fetchStats();
 
-    // SOCKET REAL-TIME UPDATES
+    // 2. SOCKET REAL-TIME LISTENERS
     if (socket) {
-      // Listen for any ticket changes to refresh stats
+      // Handler for any ticket event that should trigger a refresh
+      const handleRefresh = () => {
+        console.log("Admin Socket Event: Refreshing Global Stats...");
+        fetchStats();
+      };
+
+      // Listen for events emitted by the backend
+      socket.on("ticket:new", handleRefresh);
+      socket.on("ticket:statusUpdated", handleRefresh);
+      socket.on("ticket:priorityUpdated", handleRefresh);
+      socket.on("ticket:assigneeUpdated", handleRefresh);
       socket.on("ticket:statsUpdated", (updatedStats) => {
+        // Direct update if server sends the whole object
         setStats(updatedStats);
       });
 
-      // Fallback: Refresh stats on any major ticket event
-      const refreshEvents = ["ticket:new", "ticket:statusUpdated", "ticket:priorityUpdated"];
-      refreshEvents.forEach(event => {
-        socket.on(event, fetchStats);
-      });
-    }
-
-    return () => {
-      if (socket) {
+      // Cleanup listeners on unmount
+      return () => {
+        socket.off("ticket:new", handleRefresh);
+        socket.off("ticket:statusUpdated", handleRefresh);
+        socket.off("ticket:priorityUpdated", handleRefresh);
+        socket.off("ticket:assigneeUpdated", handleRefresh);
         socket.off("ticket:statsUpdated");
-        ["ticket:new", "ticket:statusUpdated", "ticket:priorityUpdated"].forEach(event => {
-          socket.off(event, fetchStats);
-        });
-      }
-    };
+      };
+    }
   }, [fetchStats]);
 
-  if (!user) return <div className="p-8 text-center animate-pulse text-slate-400">Loading Environment...</div>;
+  if (!user) return <div className="p-8 text-center animate-pulse text-slate-400">Loading Admin Environment...</div>;
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] p-4 md:p-10">
+    <div className="min-h-screen bg-[#f8fafc] p-4 md:p-10 text-left">
       {/* Header Section */}
       <header className="relative overflow-hidden mb-12 bg-white rounded-[2rem] shadow-2xl shadow-blue-900/10 border border-slate-100">
         <div className="absolute -top-24 -left-24 w-80 h-80 bg-blue-400/10 rounded-full blur-[100px]"></div>
@@ -81,38 +90,42 @@ const AdminDashboard = () => {
           </div>
 
           <div className="flex-1 text-center md:text-left">
-            <h1 className="text-4xl font-black text-slate-900 tracking-tight mb-2">
-              {greeting}, <span className="text-blue-600">{user.first_name}</span>
-            </h1>
-            <div className="flex flex-wrap justify-center md:justify-start items-center gap-3 text-slate-500">
-              <User size={16} /> {user.position}
+            <div className="flex items-center justify-center md:justify-start gap-3 mb-2">
+               <h1 className="text-4xl font-black text-slate-900 tracking-tight">
+                {greeting}, <span className="text-blue-600">{user.first_name}</span>
+              </h1>
+              <span className="bg-blue-100 text-blue-700 text-[10px] font-black px-2 py-1 rounded-md uppercase tracking-tighter">Admin Control</span>
+            </div>
+            
+            <div className="flex flex-wrap justify-center md:justify-start items-center gap-3 text-slate-500 font-medium">
+              <User size={16} className="text-slate-400"/> {user.position}
               <span className="text-slate-200">|</span>
-              <p className="font-mono text-xs font-bold bg-slate-900 text-white px-2 py-1 rounded-md">ID:{user.employee_id}</p>
+              <p className="font-mono text-xs font-bold bg-slate-900 text-white px-2 py-1 rounded-md tracking-tighter">ID: {user.employee_id}</p>
             </div>
 
             <div className="flex flex-wrap justify-center md:justify-start gap-3 mt-6">
               <MetaChip icon={<Building2 size={16}/>} label="Department" value={DEPARTMENT_MAP[user.department_id]} color="blue" />
-              <MetaChip icon={<MapPin size={16}/>} label="Office Location" value={BRANCH_MAP[user.branch_id]} color="indigo" />
+              <MetaChip icon={<MapPin size={16}/>} label="Branch Office" value={BRANCH_MAP[user.branch_id]} color="indigo" />
             </div>
           </div>
         </div>
       </header>
 
-      {/* 4-Tile Stats Section */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* 5-Tile Stats Section */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <StatCard 
           icon={<Clock />} 
-          title="Pending Tickets Today" 
+          title="Pending Today" 
           value={stats.pending_today} 
           color="amber" 
           description="Awaiting Action"
         />
         <StatCard 
           icon={<Ticket />} 
-          title="Total Tickets Today" 
+          title="Daily Volume" 
           value={stats.total_today} 
           color="blue" 
-          description="Daily Volume"
+          description="Today's Total"
         />
         <StatCard 
           icon={<CheckCircle />} 
@@ -122,21 +135,27 @@ const AdminDashboard = () => {
           description="Lifetime Success"
         />
         <StatCard 
+          icon={<AlertOctagon />} 
+          title="Total Failed" 
+          value={stats.total_failed || 0} 
+          color="red" 
+          description="System Blockers"
+        />
+        <StatCard 
           icon={<PlusCircle />} 
-          title="Total Created" 
+          title="System Total" 
           value={stats.total_created} 
           color="slate" 
-          description="System Total"
+          description="All-time History"
         />
       </div>
     </div>
   );
 };
 
-// Sub-component for Header Chips
 const MetaChip = ({ icon, label, value, color }) => (
   <div className="flex items-center gap-3 bg-white border border-slate-100 p-1.5 pr-4 rounded-2xl shadow-sm">
-    <div className={`w-8 h-8 rounded-xl flex items-center justify-center bg-${color}-100 text-${color}-600`}>
+    <div className={`w-8 h-8 rounded-xl flex items-center justify-center bg-${color}-50 text-${color}-600`}>
       {icon}
     </div>
     <div className="flex flex-col">
@@ -146,27 +165,27 @@ const MetaChip = ({ icon, label, value, color }) => (
   </div>
 );
 
-// Improved StatCard Component
 const StatCard = ({ icon, title, value, color, description }) => {
   const colors = {
     blue: "text-blue-600 bg-blue-50 border-blue-100",
     emerald: "text-emerald-600 bg-emerald-50 border-emerald-100",
     amber: "text-amber-600 bg-amber-50 border-amber-100",
+    red: "text-red-600 bg-red-50 border-red-100",
     slate: "text-slate-600 bg-slate-50 border-slate-100",
   };
 
   return (
-    <div className="bg-white p-6 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-xl transition-all duration-300 group text-left">
+    <div className="bg-white p-5 rounded-[2rem] border border-slate-100 shadow-sm hover:shadow-xl transition-all duration-300 group">
       <div className="flex items-center justify-between mb-4">
         <div className={`p-3 rounded-2xl ${colors[color]}`}>
           {React.cloneElement(icon, { size: 20 })}
         </div>
-        <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">{description}</span>
+        <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{description}</span>
       </div>
       <h3 className="text-slate-500 font-bold text-xs uppercase tracking-wider mb-1">{title}</h3>
       <div className="flex items-baseline gap-2">
         <span className="text-4xl font-black text-slate-900">{value}</span>
-        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+        {value > 0 && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>}
       </div>
     </div>
   );

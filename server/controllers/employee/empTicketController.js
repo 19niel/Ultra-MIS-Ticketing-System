@@ -114,3 +114,26 @@ export const empcreateTicket = async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 };
+
+// empTicketController.js
+export const getEmployeeDashboardStats = async (req, res) => {
+  try {
+    const { emp_id } = req.params;
+    
+    // Using CURDATE() for more reliable daily filtering
+    const [rows] = await db.execute(`
+      SELECT 
+        COUNT(CASE WHEN created_by = ? AND status_id IN (1, 2, 3) THEN 1 END) as my_pending,
+        COUNT(CASE WHEN created_by = ? AND DATE(created_at) = CURDATE() THEN 1 END) as my_today,
+        COUNT(CASE WHEN created_by = ? AND status_id = 4 THEN 1 END) as my_resolved,
+        COUNT(CASE WHEN created_by = ? AND status_id = 6 THEN 1 END) as my_failed,
+        COUNT(CASE WHEN created_by = ? THEN 1 END) as my_total
+      FROM tickets
+    `, [emp_id, emp_id, emp_id, emp_id, emp_id]);
+
+    res.json(rows[0]);
+  } catch (error) {
+    console.error("Dashboard Stats Error:", error);
+    res.status(500).json({ error: error.message });
+  }
+};

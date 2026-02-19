@@ -145,7 +145,6 @@ export default function Tickets() {
               <option value="all">All Status</option>
               <option value="open">Open</option>
               <option value="in progress">In Progress</option>
-              <option value="resolved">Resolved</option>
               <option value="closed">Closed</option>
             </select>
 

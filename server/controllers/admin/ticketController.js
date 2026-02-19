@@ -74,6 +74,7 @@ export const getAllTickets = async (req, res) => {
         p.priority_name AS priority,
         c.category_name AS category, 
         t.closed_at, 
+        t.is_resolved,
         t.created_at, 
         t.updated_at
       FROM tickets t
@@ -356,34 +357,38 @@ export const updatePriority = async (req, res) => {
   }
 };
 
+// ... in your ticketController.js
 export const closeTicket = async (req, res) => {
   const { ticket_id } = req.params;
-  const CLOSED_STATUS_ID = 5; // Matches your STATUS_ID_TO_NAME mapping
+  const { is_resolved } = req.body; // 1 for Resolved, 0 for Failed
+  const CLOSED_STATUS_ID = 4; 
 
   try {
+    if (is_resolved === undefined || is_resolved === null) {
+      return res.status(400).json({ message: "Resolution status is required." });
+    }
+
     const [result] = await db.query(
       `UPDATE tickets 
        SET status_id = ?, 
+           is_resolved = ?, 
            closed_at = CURRENT_TIMESTAMP, 
            updated_at = CURRENT_TIMESTAMP 
        WHERE ticket_id = ?`,
-      [CLOSED_STATUS_ID, ticket_id]
+      [CLOSED_STATUS_ID, is_resolved, ticket_id]
     );
 
-    if (result.affectedRows === 0) {
-      return res.status(404).json({ message: "Ticket not found" });
+    if (result.affectedRows === 0) return res.status(404).json({ message: "Ticket not found" });
+
+    const io = req.app.get("io");
+    if (io) {
+      io.emit("ticket:statusUpdated", { ticket_id: parseInt(ticket_id), status: "Closed" });
+      // This is the key event for the UI badge
+      io.emit("ticket:resolvedUpdated", { ticket_id: parseInt(ticket_id), is_resolved: parseInt(is_resolved) });
     }
 
-    // Emit socket event so frontend updates "displayStatus" to "Closed"
-    const io = req.app.get("io");
-    io.emit("ticket:statusUpdated", {
-      ticket_id: parseInt(ticket_id),
-      status: "Closed" 
-    });
-
-    res.json({ message: "Ticket closed successfully", closed_at: new Date() });
+    res.json({ message: "Ticket closed successfully", is_resolved });
   } catch (err) {
-    console.error("Close ticket error:", err);
     res.status(500).json({ error: err.message });
   }
 };
