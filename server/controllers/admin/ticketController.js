@@ -360,34 +360,45 @@ export const updatePriority = async (req, res) => {
 // ... in your ticketController.js
 export const closeTicket = async (req, res) => {
   const { ticket_id } = req.params;
-  const { is_resolved } = req.body; // 1 for Resolved, 0 for Failed
-  const CLOSED_STATUS_ID = 4; 
+  const { is_resolved } = req.body; 
+  const CLOSED_STATUS_ID = 4; // Matches your DB
 
   try {
     if (is_resolved === undefined || is_resolved === null) {
       return res.status(400).json({ message: "Resolution status is required." });
     }
 
+    const now = new Date(); // Capture timestamp
+
     const [result] = await db.query(
       `UPDATE tickets 
-       SET status_id = ?, 
-           is_resolved = ?, 
-           closed_at = CURRENT_TIMESTAMP, 
-           updated_at = CURRENT_TIMESTAMP 
+       SET status_id = ?, is_resolved = ?, closed_at = ?, updated_at = ? 
        WHERE ticket_id = ?`,
-      [CLOSED_STATUS_ID, is_resolved, ticket_id]
+      [CLOSED_STATUS_ID, is_resolved, now, now, ticket_id]
     );
 
     if (result.affectedRows === 0) return res.status(404).json({ message: "Ticket not found" });
 
     const io = req.app.get("io");
     if (io) {
-      io.emit("ticket:statusUpdated", { ticket_id: parseInt(ticket_id), status: "Closed" });
-      // This is the key event for the UI badge
-      io.emit("ticket:resolvedUpdated", { ticket_id: parseInt(ticket_id), is_resolved: parseInt(is_resolved) });
+      // Emit status update including the closed_at time for other clients
+      io.emit("ticket:statusUpdated", { 
+        ticket_id: parseInt(ticket_id), 
+        status: "Closed", 
+        closed_at: now 
+      });
+      io.emit("ticket:resolvedUpdated", { 
+        ticket_id: parseInt(ticket_id), 
+        is_resolved: parseInt(is_resolved) 
+      });
     }
 
-    res.json({ message: "Ticket closed successfully", is_resolved });
+    // Send everything back to the frontend
+    res.json({ 
+      message: "Ticket closed successfully", 
+      is_resolved: parseInt(is_resolved),
+      closed_at: now 
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

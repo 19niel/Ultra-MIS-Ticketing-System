@@ -10,7 +10,7 @@ import { socket } from "../../../../socket";
 import AdminEdit from "./AdminEdit";
 import CloseTicketModal from "./CloseTicketModal";
 
-const STATUS_ID_TO_NAME = { 1: "Open", 2: "In Progress", 3: "On Hold", 4: "Resolved", 5: "Closed", 6: "Failed" };
+const STATUS_ID_TO_NAME = { 1: "Open", 2: "In Progress", 3: "On Hold", 4: "Closed"};
 const PRIORITY_ID_TO_NAME = { 1: "Low", 2: "Medium", 3: "High", 4: "Urgent" }; 
 const BASE_URL = "http://localhost:3000/api/tickets";
 
@@ -21,6 +21,7 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
   const [displayPriority, setDisplayPriority] = useState(ticket.priority);
   const [displayAssignee, setDisplayAssignee] = useState(ticket.assigned_to);
   const [isResolved, setIsResolved] = useState(ticket.is_resolved);
+  const [displayClosedAt, setDisplayClosedAt] = useState(ticket.closed_at); // NEW STATE
   const [conversations, setConversations] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(true);
   const [supportUsers, setSupportUsers] = useState([]);
@@ -69,7 +70,14 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
         setConversations((prev) => (prev.some(m => m.message_id === data.message_id) ? prev : [...prev, data]));
       }
     };
-    const handleStatusUpdate = (data) => { if (data.ticket_id == ticket.ticket_id) setDisplayStatus(STATUS_ID_TO_NAME[data.status] || data.status); };
+    
+    const handleStatusUpdate = (data) => { 
+      if (data.ticket_id == ticket.ticket_id) {
+        setDisplayStatus(STATUS_ID_TO_NAME[data.status] || data.status);
+        if (data.closed_at) setDisplayClosedAt(data.closed_at); // SYNC DATE VIA SOCKET
+      }
+    };
+
     const handlePriorityUpdate = (data) => { if (data.ticket_id == ticket.ticket_id) setDisplayPriority(PRIORITY_ID_TO_NAME[data.priority] || data.priority); };
     const handleAssigneeUpdate = (data) => { if (data.ticket_id == ticket.ticket_id) setDisplayAssignee(data.assigned_to); };
     const handleResolvedUpdate = (data) => { if (data.ticket_id == ticket.ticket_id) setIsResolved(data.is_resolved); };
@@ -118,6 +126,7 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
     setDisplayPriority(ticket.priority);
     setDisplayAssignee(ticket.assigned_to);
     setIsResolved(ticket.is_resolved);
+    setDisplayClosedAt(ticket.closed_at); // SYNC INITIAL DATA
     fetchMessages();
   }, [ticket, fetchMessages]);
 
@@ -149,10 +158,14 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ is_resolved: resolutionValue }),
       });
+      
+      const responseData = await res.json();
       if (!res.ok) throw new Error();
+      
       setIsResolved(resolutionValue);
       setDisplayStatus("Closed");
-      setIsAuthorized(false); // Relock after closing
+      setDisplayClosedAt(responseData.closed_at || new Date().toISOString()); // UPDATE DATE IMMEDIATELY
+      setIsAuthorized(false); 
       setIsCloseModalOpen(false);
       toast.success("Ticket closed successfully");
     } catch (err) { toast.error("Failed to close ticket"); }
@@ -182,7 +195,7 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
         onClose={() => setIsAdminModalOpen(false)} 
         onConfirm={() => {
           setIsAdminModalOpen(false);
-          setIsAuthorized(true); // Unlock general restrictions
+          setIsAuthorized(true); 
           if (pendingAction) pendingAction();
         }}
       />
@@ -222,9 +235,9 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
                 >
                   <Edit3 size={16} />
                 </button>
-                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[11px] font-bold uppercase border shadow-sm ${isResolved === 1 ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
-                  {isResolved === 1 ? <CheckCircle2 size={14}/> : <XCircle size={14}/>}
-                  {isResolved === 1 ? 'Resolved' : 'Failed'}
+                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-[11px] font-bold uppercase border shadow-sm ${Number(isResolved) === 1 ? 'bg-green-50 text-green-700 border-green-200' : 'bg-red-50 text-red-700 border-red-200'}`}>
+                  {Number(isResolved) === 1 ? <CheckCircle2 size={14}/> : <XCircle size={14}/>}
+                  {Number(isResolved) === 1 ? 'Resolved' : 'Failed'}
                 </div>
               </div>
             )}
@@ -241,7 +254,6 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
             <section>
               <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3 block">Status & Priority</label>
               <div className="space-y-3">
-                {/* Status Inline Edit */}
                 {!editingStatus ? (
                   <div onClick={() => attemptEdit('status')} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer hover:shadow-md transition-all ${STATUS_COLOR[displayStatus?.toLowerCase()] || 'bg-gray-100'}`}>
                     <span className="text-sm font-bold uppercase">{STATUS_MAP[displayStatus?.toLowerCase()] || displayStatus}</span>
@@ -260,7 +272,6 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
                   </div>
                 )}
 
-                {/* Priority Inline Edit */}
                 {!editingPriority ? (
                   <div onClick={() => attemptEdit('priority')} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer hover:shadow-md transition-all ${PRIORITY_COLOR[displayPriority?.toLowerCase()] || 'bg-gray-100'}`}>
                     <span className="text-sm font-bold uppercase">{PRIORITY_MAP[displayPriority?.toLowerCase()] || displayPriority} Priority</span>
@@ -286,7 +297,6 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
               <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap font-medium">{ticket.description}</p>
             </section>
 
-            {/* SOURCE INFO */}
             <section className="space-y-3">
               <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest block">Location</label>
               <div className="flex items-center gap-3 p-3 bg-white border border-gray-100 rounded-xl">
@@ -299,7 +309,6 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
               </div>
             </section>
 
-            {/* PEOPLE SECTION  and TIMELINE SECTION*/}
             <section className="space-y-4 pt-4 border-t">
               <div className="flex justify-between items-center text-sm">
                 <span className="text-gray-500 flex items-center gap-2"><User size={14}/> Reporter</span>
@@ -328,31 +337,26 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
                 </div>
               </div>
 
-
               <div className="flex justify-between items-center text-sm">
                 <span className="text-gray-500 flex items-center gap-2"><Clock size={14}/> Created</span>
                 <span className="font-bold text-gray-800">{formatTimestamp(ticket.created_at)}</span>
               </div>
 
-              {/* Show Closed At with a dashed separator and status-based coloring */}
+              {/* TIMELINE SECTION FOR CLOSED TICKETS */}
               {isClosed && (
                 <div className="pt-2 border-t border-dashed border-gray-300">
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-gray-500 flex items-center gap-2">
-                      {isResolved === 1 ? <CheckCircle2 size={14} className="text-green-600"/> : <XCircle size={14} className="text-red-600"/>} 
+                      {Number(isResolved) === 1 ? <CheckCircle2 size={14} className="text-green-600"/> : <XCircle size={14} className="text-red-600"/>} 
                       Closed
                     </span>
-                    <span className={`font-black ${isResolved === 1 ? 'text-green-600' : 'text-red-600'}`}>
-                      {formatTimestamp(ticket.closed_at)}
+                    <span className={`font-black ${Number(isResolved) === 1 ? 'text-green-600' : 'text-red-600'}`}>
+                      {formatTimestamp(displayClosedAt)}
                     </span>
                   </div>
                 </div>
               )}
-
             </section>
-
-         
-
           </div>
 
           {/* RIGHT COLUMN: CONVERSATION */}

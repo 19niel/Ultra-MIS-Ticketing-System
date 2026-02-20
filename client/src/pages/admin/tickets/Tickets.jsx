@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { 
   Search, Eye, Calendar, User, Tag, Filter, XCircle, 
-  ChevronLeft, ChevronRight, Building2, MapPin 
+  ChevronLeft, ChevronRight, Building2, MapPin, CheckCircle2 
 } from "lucide-react";
 import ViewTicket from "./forms/ViewTicket";
 import { STATUS_MAP, PRIORITY_MAP, STATUS_COLOR, PRIORITY_COLOR } from "../../../mapping/ticketMapping";
@@ -51,8 +51,17 @@ export default function Tickets() {
       if (page === 1) setTickets((prev) => [newTicket, ...prev].slice(0, 10));
     });
 
-    socket.on("ticket:statusUpdated", (updatedTicket) => {
-      setTickets((prev) => prev.map((t) => t.ticket_id === updatedTicket.ticket_id ? { ...t, status: updatedTicket.status, updated_at: updatedTicket.updated_at } : t));
+    socket.on("ticket:statusUpdated", (updatedData) => {
+      setTickets((prev) => prev.map((t) => 
+        t.ticket_id === updatedData.ticket_id 
+          ? { 
+              ...t, 
+              status: updatedData.status, 
+              is_resolved: updatedData.is_resolved, // Capture resolution state
+              updated_at: updatedData.updated_at 
+            } 
+          : t
+      ));
     });
 
     return () => {
@@ -166,78 +175,90 @@ export default function Tickets() {
 
       {/* TICKET LIST */}
       <div className="space-y-4">
-        {tickets.map((ticket) => (
-          <div key={ticket.ticket_id} className="group bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-blue-200 transition-all duration-200 overflow-hidden">
-            <div className="p-5">
-              <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6">
-                <div className="flex-1 space-y-4">
-                  
-                  {/* SINGLE ROW: ID + TITLE + DEPT + BRANCH */}
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-gray-100 text-gray-400 border border-gray-200 font-mono flex-shrink-0">
-                      {ticket.ticket_number}
-                    </span>
+        {tickets.map((ticket) => {
+          const isClosed = ticket.status?.toLowerCase() === 'closed' || ticket.status === "4" || ticket.status === "5";
+
+          return (
+            <div key={ticket.ticket_id} className="group bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-blue-200 transition-all duration-200 overflow-hidden">
+              <div className="p-5">
+                <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6">
+                  <div className="flex-1 space-y-4">
                     
-                    <h3 className="text-lg font-bold text-gray-800 group-hover:text-blue-600 transition-colors capitalize">
-                      {ticket.subject}
-                    </h3>
-
-                    {/* Location Badges placed immediately after Title */}
-                    <div className="flex items-center gap-2">
-                      <div className="flex items-center gap-1 px-2 py-0.5 bg-slate-100/50 rounded border border-slate-200/60">
-                        <Building2 size={12} className="text-slate-400" />
-                        <span className="text-[10px] font-bold text-slate-500 uppercase">
-                          {DEPARTMENT_MAP[ticket.department_id] || "Unknown"}
-                        </span>
-                      </div>
+                    {/* SINGLE ROW: ID + TITLE + DEPT + BRANCH */}
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-gray-100 text-gray-400 border border-gray-200 font-mono flex-shrink-0">
+                        {ticket.ticket_number}
+                      </span>
                       
-                      <div className="flex items-center gap-1 px-2 py-0.5 bg-slate-100/50 rounded border border-slate-200/60">
-                        <MapPin size={12} className="text-slate-400" />
-                        <span className="text-[10px] font-bold text-slate-500 uppercase">
-                          {BRANCH_MAP[ticket.branch_id] || "Unknown"}
+                      <h3 className="text-lg font-bold text-gray-800 group-hover:text-blue-600 transition-colors capitalize">
+                        {ticket.subject}
+                      </h3>
+
+                      {/* Location Badges */}
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1 px-2 py-0.5 bg-slate-100/50 rounded border border-slate-200/60">
+                          <Building2 size={12} className="text-slate-400" />
+                          <span className="text-[10px] font-bold text-slate-500 uppercase">
+                            {DEPARTMENT_MAP[ticket.department_id] || "Unknown"}
+                          </span>
+                        </div>
+                        
+                        <div className="flex items-center gap-1 px-2 py-0.5 bg-slate-100/50 rounded border border-slate-200/60">
+                          <MapPin size={12} className="text-slate-400" />
+                          <span className="text-[10px] font-bold text-slate-500 uppercase">
+                            {BRANCH_MAP[ticket.branch_id] || "Unknown"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {/* META INFO (User, Category, Date) */}
+                    <div className="flex flex-wrap items-center gap-y-2 gap-x-6 text-sm text-gray-500">
+                      <div className="flex items-center gap-2">
+                        <div className="w-6 h-6 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
+                          <User size={12} />
+                        </div>
+                        <span className="font-medium">{ticket.created_by}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-gray-400">
+                        <Tag size={14} />
+                        <span className="text-gray-500">{ticket.category}</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-gray-400">
+                        <Calendar size={14} />
+                        <span className="text-gray-500">{formatDate(ticket.created_at)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* RIGHT SIDE: STATUS & ACTIONS */}
+                  <div className="flex items-center gap-4">
+                    <div className="flex flex-col items-end gap-2">
+                      <div className="flex items-center gap-2">
+                        {/* New Resolved/Failed Indicator */}
+                        {isClosed && (
+                           <div className={`p-1 rounded-full border shadow-sm ${Number(ticket.is_resolved) === 1 ? 'bg-green-50 text-green-600 border-green-200' : 'bg-red-50 text-red-600 border-red-200'}`}>
+                              {Number(ticket.is_resolved) === 1 ? <CheckCircle2 size={12}/> : <XCircle size={12}/>}
+                           </div>
+                        )}
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wide ring-1 ring-inset shadow-sm ${STATUS_COLOR[ticket.status?.toLowerCase()] || "bg-gray-100 text-gray-600 ring-gray-200"}`}>
+                          {STATUS_MAP[ticket.status?.toLowerCase()] || ticket.status}
                         </span>
                       </div>
+                      <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wide ring-1 ring-inset shadow-sm ${PRIORITY_COLOR[ticket.priority?.toLowerCase()] || "bg-gray-100 text-gray-600 ring-gray-200"}`}>
+                        {PRIORITY_MAP[ticket.priority?.toLowerCase()] || ticket.priority}
+                      </span>
                     </div>
+                    <button onClick={() => setSelectedTicket(ticket)} className="flex items-center gap-2 p-2.5 rounded-xl bg-gray-50 text-gray-400 hover:bg-blue-600 hover:text-white transition-all border border-gray-100 group-hover:border-blue-600 shadow-sm">
+                      <Eye size={20} />
+                      <span className="hidden sm:inline text-sm font-bold">View</span>
+                    </button>
                   </div>
-                  
-                  {/* META INFO (User, Category, Date) */}
-                  <div className="flex flex-wrap items-center gap-y-2 gap-x-6 text-sm text-gray-500">
-                    <div className="flex items-center gap-2">
-                      <div className="w-6 h-6 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
-                        <User size={12} />
-                      </div>
-                      <span className="font-medium">{ticket.created_by}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-gray-400">
-                      <Tag size={14} />
-                      <span className="text-gray-500">{ticket.category}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 text-gray-400">
-                      <Calendar size={14} />
-                      <span className="text-gray-500">{formatDate(ticket.created_at)}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* RIGHT SIDE: STATUS & ACTIONS */}
-                <div className="flex items-center gap-4">
-                  <div className="flex flex-col items-end gap-2">
-                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wide ring-1 ring-inset shadow-sm ${STATUS_COLOR[ticket.status?.toLowerCase()] || "bg-gray-100 text-gray-600 ring-gray-200"}`}>
-                      {STATUS_MAP[ticket.status?.toLowerCase()] || ticket.status}
-                    </span>
-                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wide ring-1 ring-inset shadow-sm ${PRIORITY_COLOR[ticket.priority?.toLowerCase()] || "bg-gray-100 text-gray-600 ring-gray-200"}`}>
-                      {PRIORITY_MAP[ticket.priority?.toLowerCase()] || ticket.priority}
-                    </span>
-                  </div>
-                  <button onClick={() => setSelectedTicket(ticket)} className="flex items-center gap-2 p-2.5 rounded-xl bg-gray-50 text-gray-400 hover:bg-blue-600 hover:text-white transition-all border border-gray-100 group-hover:border-blue-600 shadow-sm">
-                    <Eye size={20} />
-                    <span className="hidden sm:inline text-sm font-bold">View</span>
-                  </button>
                 </div>
               </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {selectedTicket && <ViewTicket ticket={selectedTicket} onClose={() => setSelectedTicket(null)} />}

@@ -122,7 +122,7 @@ const AdminDashboard = () => {
         />
         <StatCard 
           icon={<Ticket />} 
-          title="Daily Volume" 
+          title="Tickets Today" 
           value={stats.total_today} 
           color="blue" 
           description="Today's Total"
