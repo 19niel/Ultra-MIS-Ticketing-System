@@ -9,8 +9,9 @@ import { Server } from "socket.io";
 import authRoutes from "./routes/admin/authRoutes.js";
 import userRoutes from "./routes/admin/userRoutes.js";
 import ticketRoutes from "./routes/admin/ticketRoutes.js";
-
-import empTicketRoutes from "./routes/employee/empTicketRoutes.js"
+import empTicketRoutes from "./routes/employee/empTicketRoutes.js";
+// --- NEW IMPORT ---
+import reportRoutes from "./routes/admin/reportRoutes.js"; 
 
 dotenv.config();
 
@@ -25,41 +26,32 @@ const io = new Server(server, {
   },
 });
 
-// Make io accessible in routes/controllers
 app.set("io", io);
 
-// Middleware
-app.use(
-  cors({
-    origin: "http://localhost:5173",
-    credentials: true,
-  })
-);
+app.use(cors({ origin: "http://localhost:5173", credentials: true }));
 app.use(express.json());
 app.use(cookieParser());
+
+// Routes
+app.use("/auth", authRoutes);
+app.use("/api/users", userRoutes);
+app.use("/api/tickets", ticketRoutes);
+app.use("/api/employee/tickets", empTicketRoutes);
+// --- NEW ROUTE MOUNT ---
+app.use("/api/reports", reportRoutes); 
 
 // Health check
 app.get("/api/health", (req, res) => {
   res.json({ message: "API is running 🚀" });
 });
 
-// Routes
-app.use("/auth", authRoutes);
-app.use("/api/users", userRoutes);
-app.use("/api/tickets", ticketRoutes);
-
-app.use("/api/employee/tickets", empTicketRoutes);
-
 // 🔔 Socket.IO connection
 io.on("connection", (socket) => {
   console.log("🟢 Client connected:", socket.id);
-
-  socket.on("disconnect", () => {
-    console.log("🔴 Client disconnected:", socket.id);
-  });
+  socket.on("disconnect", () => console.log("🔴 Client disconnected:", socket.id));
 });
 
-const PORT = process.env.PORT || 3306;
+const PORT = process.env.PORT || 3000; // Note: Usually 3000 for Express, 3306 is MySQL default
 server.listen(PORT, () => {
   console.log(`✅ Server running on http://localhost:${PORT}`);
 });
