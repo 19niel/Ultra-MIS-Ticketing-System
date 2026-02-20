@@ -24,7 +24,7 @@ export default function Sidebar({ role }) {
     { icon: MessageSquare, label: "New Ticket", to: "/admin/new"}, 
     { icon: Users, label: "Users", to: "/admin/users" },
     { icon: BarChart3, label: "Reports", to: "/admin/reports" },
-    { icon: Settings, label: "Settings", to: "/admin/settings" },
+  
   ];
 
   const techSupportNavItems = [

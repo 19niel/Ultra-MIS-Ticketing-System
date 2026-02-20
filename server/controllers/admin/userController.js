@@ -1,27 +1,65 @@
   import { db } from "../../db.js";
 
   export const getAllUsers = async (req, res) => {
-    try {
-      const [rows] = await db.query(
-        `SELECT 
-          user_id,
-          first_name,
-          last_name,
-          email,
-          position,
-          role_id,
-          employee_id,
-          department_id,
-          branch_id
-        FROM users`
-      );
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const offset = (page - 1) * limit;
+    const search = req.query.search || "";
+    const role = req.query.role || "all";
 
-      res.json(rows);
-    } catch (err) {
-      console.error("Get users error:", err);
-      res.status(500).json({ message: "Server error" });
+    let whereClauses = [];
+    let params = [];
+
+    // 1. Search Logic (Name, Email, or Employee ID)
+    if (search) {
+      whereClauses.push("(first_name LIKE ? OR last_name LIKE ? OR email LIKE ? OR employee_id LIKE ?)");
+      const searchVal = `%${search}%`;
+      params.push(searchVal, searchVal, searchVal, searchVal);
     }
-  };
+
+    // 2. Role Logic
+    if (role !== "all") {
+      // Map labels back to IDs if necessary, or use the IDs directly from frontend
+      const roleMap = { "admin": 1, "tech_support": 2, "employee": 3 };
+      const roleId = roleMap[role] || role; 
+      whereClauses.push("role_id = ?");
+      params.push(roleId);
+    }
+
+    const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(" AND ")}` : "";
+
+    // 3. Get Total Count for Pagination Stats
+    const [countRows] = await db.query(
+      `SELECT COUNT(*) as total FROM users ${whereSql}`,
+      params
+    );
+    const totalUsers = countRows[0].total;
+
+    // 4. Get Paginated Data
+    const [rows] = await db.query(
+      `SELECT 
+          user_id, first_name, last_name, email, 
+          position, role_id, employee_id, 
+          department_id, branch_id, is_active
+       FROM users
+       ${whereSql}
+       ORDER BY last_name ASC
+       LIMIT ? OFFSET ?`,
+      [...params, limit, offset]
+    );
+
+    res.json({
+      users: rows,
+      totalUsers,
+      totalPages: Math.ceil(totalUsers / limit),
+      currentPage: page
+    });
+  } catch (err) {
+    console.error("Get users error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+};
 
   export const addUser = async (req, res) => {
     try {

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { 
   Search, UserPlus, Edit, Trash2, User, Mail, 
-  ShieldCheck, Fingerprint, Filter 
+  ShieldCheck, Fingerprint, Filter, ChevronLeft, ChevronRight 
 } from "lucide-react";
 
 import AddUserForm from "./forms/AddUserForm";
@@ -12,21 +12,44 @@ export default function Users() {
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("all");
   const [users, setUsers] = useState([]);
+  const [page, setPage] = useState(1);
+  const [totalStats, setTotalStats] = useState({ totalPages: 1, totalUsers: 0 });
+  
   const [showModal, setShowModal] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
 
-  const fetchUsers = () => {
-    fetch("http://localhost:3000/api/users")
-      .then((res) => res.json())
-      .then((data) => setUsers(data))
-      .catch((err) => console.error("Error fetching users:", err));
+  const fetchUsers = async () => {
+    try {
+      const query = new URLSearchParams({
+        page,
+        limit: 10,
+        search: search.trim(),
+        role: roleFilter
+      }).toString();
+
+      const res = await fetch(`http://localhost:3000/api/users?${query}`);
+      const data = await res.json();
+      
+      setUsers(data.users || []);
+      setTotalStats({ 
+        totalPages: data.totalPages || 1, 
+        totalUsers: data.totalUsers || 0 
+      });
+    } catch (err) {
+      console.error("Error fetching users:", err);
+    }
   };
 
+  // Reset to page 1 when filters change
+  useEffect(() => { setPage(1); }, [search, roleFilter]);
+
+  // Fetch data on page/filter change
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    const delayDebounceFn = setTimeout(() => { fetchUsers(); }, 300);
+    return () => clearTimeout(delayDebounceFn);
+  }, [page, search, roleFilter]);
 
   const getRoleLabel = (roleId) => {
     const roles = { 1: "admin", 2: "tech_support", 3: "employee" };
@@ -42,21 +65,6 @@ export default function Users() {
     }
   };
 
-  const filteredUsers = users.filter((user) => {
-    const searchTerm = search.toLowerCase();
-    const fullName = `${user.first_name || ""} ${user.last_name || ""}`.toLowerCase();
-    const roleLabel = getRoleLabel(user.role_id);
-
-    const matchesSearch = 
-      fullName.includes(searchTerm) || 
-      (user.email && user.email.toLowerCase().includes(searchTerm)) ||
-      (user.employee_id && user.employee_id.toString().includes(searchTerm));
-
-    const matchesRole = roleFilter === "all" || roleLabel === roleFilter;
-
-    return matchesSearch && matchesRole;
-  });
-
   return (
     <div className="max-w-6xl mx-auto p-6 lg:p-10 space-y-8 bg-gray-50/50 min-h-screen">
       {/* HEADER SECTION */}
@@ -67,7 +75,7 @@ export default function Users() {
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="flex items-center justify-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-blue-700 transition-all shadow-sm hover:shadow-blue-200 active:scale-95"
+          className="flex items-center justify-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:bg-blue-700 transition-all shadow-sm active:scale-95"
         >
           <UserPlus size={18} />
           Add New User
@@ -102,6 +110,42 @@ export default function Users() {
         </div>
       </div>
 
+      {/* PAGINATION CONTROL (Same as Tickets) */}
+      <div className="flex flex-col sm:flex-row items-center justify-between px-6 py-4 bg-white border border-gray-100 rounded-2xl shadow-sm">
+        <div className="flex items-center gap-2 text-sm text-gray-500">
+          <span className="flex h-2 w-2 rounded-full bg-blue-500 animate-pulse"></span>
+          {users.length > 0 ? (
+            <>
+              Showing <span className="font-bold text-gray-800">{(page - 1) * 10 + 1}</span> to <span className="font-bold text-gray-800">{Math.min(page * 10, totalStats.totalUsers)}</span> of <span className="font-bold text-gray-800">{totalStats.totalUsers}</span> results
+            </>
+          ) : (
+            "No results to show"
+          )}
+        </div>
+
+        <div className="flex items-center bg-gray-50 p-1 rounded-xl border border-gray-100">
+          <button 
+            onClick={() => setPage((p) => Math.max(1, p - 1))} 
+            disabled={page === 1} 
+            className="px-4 py-2 text-sm font-bold text-gray-600 rounded-lg hover:bg-white disabled:opacity-30 transition-colors"
+          >
+            <ChevronLeft size={16} className="inline mr-1" /> Prev
+          </button>
+          
+          <div className="px-4 text-sm font-bold border-x border-gray-200">
+            <span className="text-blue-600">{page}</span> / {totalStats.totalPages}
+          </div>
+          
+          <button 
+            onClick={() => setPage((p) => Math.min(totalStats.totalPages, p + 1))} 
+            disabled={page === totalStats.totalPages} 
+            className="px-4 py-2 text-sm font-bold text-gray-600 rounded-lg hover:bg-white disabled:opacity-30 transition-colors"
+          >
+            Next <ChevronRight size={16} className="inline ml-1" />
+          </button>
+        </div>
+      </div>
+
       {/* USERS TABLE */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
@@ -115,9 +159,8 @@ export default function Users() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50">
-              {filteredUsers.map((user) => (
+              {users.map((user) => (
                 <tr key={user.user_id} className="group hover:bg-blue-50/30 transition-colors">
-                  {/* EMPLOYEE ID & NAME */}
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-500 group-hover:bg-white transition-colors border border-transparent group-hover:border-gray-200">
@@ -134,24 +177,18 @@ export default function Users() {
                       </div>
                     </div>
                   </td>
-
-                  {/* EMAIL */}
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2 text-sm text-gray-600">
                       <Mail size={14} className="text-gray-300" />
                       {user.email}
                     </div>
                   </td>
-
-                  {/* ROLE BADGE */}
                   <td className="px-6 py-4">
                     <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wide ring-1 ring-inset shadow-sm ${getRoleStyle(user.role_id)}`}>
                       <ShieldCheck size={12} />
                       {getRoleLabel(user.role_id)}
                     </span>
                   </td>
-
-                  {/* ACTIONS */}
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-end gap-2">
                       <button
@@ -175,17 +212,6 @@ export default function Users() {
                   </td>
                 </tr>
               ))}
-
-              {filteredUsers.length === 0 && (
-                <tr>
-                  <td colSpan="4" className="text-center py-12">
-                    <div className="flex flex-col items-center justify-center text-gray-400 gap-2">
-                      <Search size={32} strokeWidth={1} />
-                      <p className="text-sm font-medium">No users match your search criteria</p>
-                    </div>
-                  </td>
-                </tr>
-              )}
             </tbody>
           </table>
         </div>
@@ -193,7 +219,6 @@ export default function Users() {
 
       {/* MODALS */}
       <AddUserForm isOpen={showModal} onClose={() => { setShowModal(false); fetchUsers(); }} />
-      
       {editingUser && (
         <EditUserForm
           isOpen={!!editingUser}
@@ -202,7 +227,6 @@ export default function Users() {
           onSuccess={fetchUsers}
         />
       )}
-
       <DeleteUserForm
         isOpen={showDeleteModal}
         user={selectedUser}

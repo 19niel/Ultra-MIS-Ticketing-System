@@ -9,24 +9,55 @@ export const getMyTickets = async (req, res) => {
     const offset = (page - 1) * limit;
 
     let whereClauses = ["t.created_by = ?"];
-    let params = [empId]; 
+    let params = [empId];
 
+    // 1. Search Logic
     if (req.query.search) {
       whereClauses.push("(t.subject LIKE ? OR t.ticket_number LIKE ?)");
       params.push(`%${req.query.search}%`, `%${req.query.search}%`);
     }
-    
+
+    // 2. Status Filter
+    if (req.query.status && req.query.status !== "all") {
+      whereClauses.push("s.status_name = ?");
+      params.push(req.query.status);
+    }
+
+    // 3. Priority Filter
+    if (req.query.priority && req.query.priority !== "all") {
+      whereClauses.push("p.priority_name = ?");
+      params.push(req.query.priority);
+    }
+
+    // 4. Date Range Filter
+    if (req.query.dateRange && req.query.dateRange !== "all") {
+      if (req.query.dateRange === "today") {
+        whereClauses.push("DATE(t.created_at) = CURDATE()");
+      } else if (req.query.dateRange === "week") {
+        whereClauses.push("t.created_at >= DATE_SUB(NOW(), INTERVAL 7 DAY)");
+      } else if (req.query.dateRange === "month") {
+        whereClauses.push("t.created_at >= DATE_SUB(NOW(), INTERVAL 1 MONTH)");
+      }
+    }
+
     const whereSql = `WHERE ${whereClauses.join(" AND ")}`;
 
-    // UPDATED QUERY BELOW
+    // Main Query - ADDED is_resolved, department_id, and branch_id
     const [rows] = await db.query(`
       SELECT 
-        t.ticket_id, t.ticket_number, t.subject, t.description,
+        t.ticket_id, 
+        t.ticket_number, 
+        t.subject, 
+        t.description,
+        t.is_resolved,
+        t.department_id,
+        t.branch_id,
         CONCAT(creator.first_name, ' ', creator.last_name) AS created_by,
         s.status_name AS status, 
         p.priority_name AS priority,
         c.category_name AS category,
-        t.created_at, t.updated_at
+        t.created_at, 
+        t.updated_at
       FROM tickets t
       LEFT JOIN users creator ON t.created_by = creator.employee_id
       LEFT JOIN ticket_status s ON t.status_id = s.status_id
@@ -37,8 +68,12 @@ export const getMyTickets = async (req, res) => {
       LIMIT ? OFFSET ?
     `, [...params, limit, offset]);
 
+    // Count Query
     const [countRows] = await db.query(
-      `SELECT COUNT(*) as total FROM tickets t ${whereSql}`, 
+      `SELECT COUNT(*) as total 
+       FROM tickets t 
+       LEFT JOIN ticket_status s ON t.status_id = s.status_id
+       ${whereSql}`, 
       params
     );
 
@@ -52,7 +87,6 @@ export const getMyTickets = async (req, res) => {
     res.status(500).json({ message: "Failed to fetch tickets" });
   }
 };
-
 export const empcreateTicket = async (req, res) => {
   try {
     const io = req.app.get("io");
