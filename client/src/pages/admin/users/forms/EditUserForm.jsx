@@ -111,13 +111,30 @@ export default function EditUserForm({ isOpen, onClose, user, onSuccess }) {
 
             <input name="email" type="email" value={formData.email} onChange={handleChange} placeholder="Email Address" className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:border-blue-500 transition-all text-sm font-medium" required />
             
-            <label className="relative flex items-center cursor-pointer pt-2">
-              <input type="checkbox" name="is_active" checked={formData.is_active} onChange={handleChange} className="sr-only peer" />
-              <div className="w-9 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-blue-600"></div>
-              <span className="ml-2 text-xs font-black uppercase text-gray-500 tracking-wider">Active Account</span>
+            <label className="relative flex items-center cursor-pointer pt-2 group">
+              <input 
+                type="checkbox" 
+                name="is_active" 
+                checked={formData.is_active} 
+                onChange={handleChange} 
+                className="sr-only peer" 
+              />
+              
+              {/* The Toggle Track */}
+              <div className="relative w-9 h-5 bg-gray-200 rounded-full peer 
+                peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-500/20 
+                peer-checked:bg-blue-600 transition-all duration-200
+                /* The White Dot - Using 2px to center inside a 20px (h-5) track */
+                after:content-[''] after:absolute after:top-[2px] after:left-[2px] 
+                after:bg-white after:border-gray-300 after:border after:rounded-full 
+                after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-4">
+              </div>
+              
+              <span className="ml-3 text-[10px] font-black uppercase text-gray-500 tracking-widest select-none">
+                Active Account
+              </span>
             </label>
           </div>
-          
           <div className="flex gap-3 pt-4">
             <button type="button" onClick={onClose} className="flex-1 px-4 py-2.5 border border-gray-200 text-gray-600 rounded-xl font-bold text-sm hover:bg-gray-50 transition-all">
               Cancel

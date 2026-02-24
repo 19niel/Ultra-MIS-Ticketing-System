@@ -139,3 +139,32 @@
         res.status(500).json({ message: "Server error" });
       }
     };
+
+  export const changeUserPassword = async (req, res) => {
+      try {
+          const { id } = req.params;
+          const { currentPassword, newPassword } = req.body;
+
+          // 1. Fetch user data - UPDATED COLUMN NAME HERE
+          const [rows] = await db.query("SELECT password_hash FROM users WHERE user_id = ?", [id]);
+          
+          if (rows.length === 0) {
+              return res.status(404).json({ message: "User not found" });
+          }
+
+          const user = rows[0];
+
+          // 2. Comparison - UPDATED TO USE user.password_hash
+          if (currentPassword !== user.password_hash) {
+              return res.status(400).json({ message: "The current password you entered is incorrect" });
+          }
+
+          // 3. Update the password - (Already correct in your snippet)
+          await db.query("UPDATE users SET password_hash = ? WHERE user_id = ?", [newPassword, id]);
+
+          res.json({ message: "Password updated successfully" });
+      } catch (error) {
+          console.error("Change password error:", error);
+          res.status(500).json({ message: "Internal server error" });
+      }
+  };
