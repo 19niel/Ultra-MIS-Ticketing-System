@@ -149,25 +149,38 @@ export const empcreateTicket = async (req, res) => {
   }
 };
 
+
 // empTicketController.js
 export const getEmployeeDashboardStats = async (req, res) => {
   try {
     const { emp_id } = req.params;
     
-    // Using CURDATE() for more reliable daily filtering
+    // Using CURDATE() inside the query for accuracy
     const [rows] = await db.execute(`
       SELECT 
-        COUNT(CASE WHEN created_by = ? AND status_id IN (1, 2, 3) THEN 1 END) as my_pending,
+        -- 1. PENDING TODAY: Created TODAY AND not closed (Status 1, 2, or 3)
+        COUNT(CASE WHEN created_by = ? AND DATE(created_at) = CURDATE() AND status_id IN (1, 2, 3) THEN 1 END) as pending_today,
+
+        -- 2. CREATED TODAY: Total tickets submitted today regardless of status
         COUNT(CASE WHEN created_by = ? AND DATE(created_at) = CURDATE() THEN 1 END) as my_today,
+
+        -- 3. STILL OPEN: Total accumulation of unresolved work (Backlog - Status 1, 2, 3)
+        COUNT(CASE WHEN created_by = ? AND status_id IN (1, 2, 3) THEN 1 END) as still_open,
+
+        -- 4. RESOLVED: Total Closed successfully (Status 4)
         COUNT(CASE WHEN created_by = ? AND status_id = 4 THEN 1 END) as my_resolved,
+
+        -- 5. FAILED: Total Failed (Status 6)
         COUNT(CASE WHEN created_by = ? AND status_id = 6 THEN 1 END) as my_failed,
+
+        -- 6. TOTAL: Every ticket ever created by this employee
         COUNT(CASE WHEN created_by = ? THEN 1 END) as my_total
       FROM tickets
-    `, [emp_id, emp_id, emp_id, emp_id, emp_id]);
+    `, [emp_id, emp_id, emp_id, emp_id, emp_id, emp_id]);
 
     res.json(rows[0]);
   } catch (error) {
-    console.error("Dashboard Stats Error:", error);
+    console.error("Employee Dashboard Stats Error:", error);
     res.status(500).json({ error: error.message });
   }
 };

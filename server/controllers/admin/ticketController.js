@@ -231,19 +231,35 @@ export const createTicket = async (req, res) => {
 // 🔔 Socket-Enabled Ticket Creation
 export const getDashboardStats = async (req, res) => {
   try {
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    // We use CURDATE() directly in SQL for cleaner code, 
+    // but keeping your 'today' variable approach works too.
+    const today = new Date().toISOString().split('T')[0]; 
 
     const [stats] = await db.execute(`
       SELECT 
+        -- 1. Pending Today: Created today AND currently unresolved (1,2,3)
         COUNT(CASE WHEN DATE(created_at) = ? AND status_id IN (1, 2, 3) THEN 1 END) as pending_today,
+        
+        -- 2. Total Today: Everything created today
         COUNT(CASE WHEN DATE(created_at) = ? THEN 1 END) as total_today,
+
+        -- 3. Still Open: The "Report Style" count (Accumulated backlog 1,2,3)
+        COUNT(CASE WHEN status_id IN (1, 2, 3) THEN 1 END) as still_open,
+        
+        -- 4. Total Resolved: Status 4 (Closed/Resolved)
         COUNT(CASE WHEN status_id = 4 THEN 1 END) as total_resolved,
+
+        -- 5. Total Failed: Status 6 (If applicable in your system)
+        COUNT(CASE WHEN status_id = 6 THEN 1 END) as total_failed,
+
+        -- 6. System Total: All time
         COUNT(*) as total_created
       FROM tickets
     `, [today, today]);
 
     res.json(stats[0]);
   } catch (error) {
+    console.error("Dashboard Stats Error:", error);
     res.status(500).json({ error: error.message });
   }
 };

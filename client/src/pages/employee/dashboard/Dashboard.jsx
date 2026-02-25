@@ -7,7 +7,8 @@ import {
   CheckCircle, 
   PlusCircle, 
   Clock, 
-  AlertOctagon 
+  AlertOctagon,
+  Calendar // Added for Still Open
 } from 'lucide-react';
 import { DEPARTMENT_MAP, BRANCH_MAP } from '../../../mapping/userDetailsMapping'; 
 import { socket } from "../../../socket"; 
@@ -16,36 +17,30 @@ const EmployeeDashboard = () => {
   const [user, setUser] = useState(null);
   const [greeting, setGreeting] = useState("Welcome");
   
-  // 1. Define stats state including the new 'my_failed' field
   const [stats, setStats] = useState({
     my_pending: 0,
     my_today: 0,
+    still_open: 0, // Added to hold the 'Still Open' value
     my_resolved: 0,
     my_failed: 0,
     my_total: 0
   });
 
-  // 2. Memoized fetch function for real-time refreshes
   const fetchEmployeeStats = useCallback(async (empId) => {
     if (!empId) return;
     
     try {
-      // Note: Ensure your backend controller handles 'my_failed' in the JSON response
       const res = await fetch(`http://localhost:3000/api/employee/tickets/stats/${empId}`);
       
       if (res.ok) {
         const data = await res.json();
-        console.log("Dashboard Stats Updated:", data);
         setStats(data);
-      } else {
-        console.error("Server error during stats fetch:", res.status);
       }
     } catch (err) {
       console.error("Failed to fetch employee stats:", err);
     }
   }, []);
 
-  // 3. Initialization and Socket Listeners
   useEffect(() => {
     const storedUser = sessionStorage.getItem("user");
     let currentEmpId = null;
@@ -54,33 +49,23 @@ const EmployeeDashboard = () => {
       const parsedUser = JSON.parse(storedUser);
       setUser(parsedUser);
       currentEmpId = parsedUser.employee_id;
-      
-      if (currentEmpId) {
-        fetchEmployeeStats(currentEmpId);
-      }
+      if (currentEmpId) fetchEmployeeStats(currentEmpId);
     }
 
-    // Dynamic Greeting
     const hour = new Date().getHours();
     if (hour < 12) setGreeting("Good Morning");
     else if (hour < 18) setGreeting("Good Afternoon");
     else setGreeting("Good Evening");
 
-    // Socket.io Real-time Integration
     if (socket) {
       const handleSocketRefresh = () => {
-        if (currentEmpId) {
-          console.log("Real-time update received. Refreshing dashboard...");
-          fetchEmployeeStats(currentEmpId);
-        }
+        if (currentEmpId) fetchEmployeeStats(currentEmpId);
       };
 
-      // Listen for ticket changes (same as ViewTicket logic)
       socket.on("ticket:statusUpdated", handleSocketRefresh);
       socket.on("ticket:updated", handleSocketRefresh);
       socket.on("newTicket", handleSocketRefresh);
 
-      // Cleanup listeners on component unmount
       return () => {
         socket.off("ticket:statusUpdated", handleSocketRefresh);
         socket.off("ticket:updated", handleSocketRefresh);
@@ -107,7 +92,7 @@ const EmployeeDashboard = () => {
         <div className="absolute -top-24 -left-24 w-80 h-80 bg-blue-400/5 rounded-full blur-[100px]"></div>
         
         <div className="relative p-8 md:p-10 flex flex-col md:flex-row items-center md:items-start gap-10 text-left">
-          {/* User Avatar */}
+          {/* User Avatar - Retained Blue BG */}
           <div className="w-28 h-28 bg-blue-600 text-white rounded-[2.5rem] flex items-center justify-center text-4xl font-black shadow-xl">
             {user.first_name?.[0]}{user.last_name?.[0]}
           </div>
@@ -129,28 +114,18 @@ const EmployeeDashboard = () => {
             </div>
 
             <div className="flex flex-wrap gap-3">
-              <MetaChip 
-                icon={<Building2 size={16}/>} 
-                label="Department" 
-                value={DEPARTMENT_MAP[user.department_id]} 
-                color="blue" 
-              />
-              <MetaChip 
-                icon={<MapPin size={16}/>} 
-                label="Branch" 
-                value={BRANCH_MAP[user.branch_id]} 
-                color="indigo" 
-              />
+              <MetaChip icon={<Building2 size={16}/>} label="Department" value={DEPARTMENT_MAP[user.department_id]} color="blue" />
+              <MetaChip icon={<MapPin size={16}/>} label="Branch" value={BRANCH_MAP[user.branch_id]} color="indigo" />
             </div>
           </div>
         </div>
       </header>
 
-      {/* STATS GRID - 5 COLUMNS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 md:gap-6">
+      {/* STATS GRID - 3x2 Layout */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
         <StatCard 
           icon={<Clock />} 
-          title="Open Tickets" 
+          title="Pending Today" 
           value={stats.my_pending} 
           color="amber" 
           description="Awaiting Action"
@@ -161,6 +136,13 @@ const EmployeeDashboard = () => {
           value={stats.my_today} 
           color="blue" 
           description="Recent Submissions"
+        />
+        <StatCard 
+          icon={<Calendar />} 
+          title="Still Open" 
+          value={stats.still_open || 0} 
+          color="indigo" 
+          description="Unresolved Tickets"
         />
         <StatCard 
           icon={<CheckCircle />} 
@@ -188,24 +170,14 @@ const EmployeeDashboard = () => {
   );
 };
 
-// HELPER COMPONENTS
-const MetaChip = ({ icon, label, value, color }) => (
-  <div className="flex items-center gap-3 bg-white border border-slate-100 p-1.5 pr-4 rounded-2xl shadow-sm">
-    <div className={`w-8 h-8 rounded-xl flex items-center justify-center bg-${color}-50 text-${color}-600`}>
-      {icon}
-    </div>
-    <div className="flex flex-col">
-      <span className="text-[10px] uppercase font-black text-slate-400 leading-none mb-1">{label}</span>
-      <span className="text-sm font-bold text-slate-700">{value || "N/A"}</span>
-    </div>
-  </div>
-);
+// ... (MetaChip stays same)
 
 const StatCard = ({ icon, title, value, color, description }) => {
   const themes = {
     blue: "text-blue-600 bg-blue-50 border-blue-100",
     emerald: "text-emerald-600 bg-emerald-50 border-emerald-100",
     amber: "text-amber-600 bg-amber-50 border-amber-100",
+    indigo: "text-indigo-600 bg-indigo-50 border-indigo-100", // Added Indigo
     red: "text-red-600 bg-red-50 border-red-100",
     slate: "text-slate-600 bg-slate-50 border-slate-100",
   };
@@ -221,9 +193,22 @@ const StatCard = ({ icon, title, value, color, description }) => {
       <h3 className="text-slate-500 font-bold text-xs uppercase tracking-wider mb-2">{title}</h3>
       <div className="flex items-baseline gap-2">
         <span className="text-5xl font-black text-slate-900">{value}</span>
+        {value > 0 && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>}
       </div>
     </div>
   );
 };
+
+const MetaChip = ({ icon, label, value, color }) => (
+  <div className="flex items-center gap-3 bg-white border border-slate-100 p-1.5 pr-4 rounded-2xl shadow-sm">
+    <div className={`w-8 h-8 rounded-xl flex items-center justify-center bg-${color}-50 text-${color}-600`}>
+      {icon}
+    </div>
+    <div className="flex flex-col text-left">
+      <span className="text-[10px] uppercase font-black text-slate-400 leading-none mb-1">{label}</span>
+      <span className="text-sm font-bold text-slate-700">{value || "N/A"}</span>
+    </div>
+  </div>
+);
 
 export default EmployeeDashboard;

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Building2, MapPin, User, Ticket, CheckCircle, PlusCircle, Clock, AlertOctagon } from 'lucide-react';
+import { Building2, MapPin, User, Ticket, CheckCircle, PlusCircle, Clock, AlertOctagon, Calendar } from 'lucide-react';
 import { DEPARTMENT_MAP, BRANCH_MAP } from '../../../mapping/userDetailsMapping'; 
 import { socket } from "../../../socket"; 
 
@@ -9,12 +9,12 @@ const AdminDashboard = () => {
   const [stats, setStats] = useState({
     pending_today: 0,
     total_today: 0,
+    still_open: 0, 
     total_resolved: 0,
-    total_failed: 0, // Added to match system-wide tracking
+    total_failed: 0,
     total_created: 0
   });
 
-  // 1. Memoized fetch function for initial load and socket refreshes
   const fetchStats = useCallback(async () => {
     try {
       const res = await fetch("http://localhost:3000/api/tickets/stats/summary");
@@ -28,38 +28,24 @@ const AdminDashboard = () => {
   }, []);
 
   useEffect(() => {
-    // Initial User Setup
     const storedUser = sessionStorage.getItem("user");
     if (storedUser) setUser(JSON.parse(storedUser));
 
-    // Greeting Logic
     const hour = new Date().getHours();
     if (hour < 12) setGreeting("Good Morning");
     else if (hour < 18) setGreeting("Good Afternoon");
     else setGreeting("Good Evening");
 
-    // Load initial stats
     fetchStats();
 
-    // 2. SOCKET REAL-TIME LISTENERS
     if (socket) {
-      // Handler for any ticket event that should trigger a refresh
-      const handleRefresh = () => {
-        console.log("Admin Socket Event: Refreshing Global Stats...");
-        fetchStats();
-      };
-
-      // Listen for events emitted by the backend
+      const handleRefresh = () => fetchStats();
       socket.on("ticket:new", handleRefresh);
       socket.on("ticket:statusUpdated", handleRefresh);
       socket.on("ticket:priorityUpdated", handleRefresh);
       socket.on("ticket:assigneeUpdated", handleRefresh);
-      socket.on("ticket:statsUpdated", (updatedStats) => {
-        // Direct update if server sends the whole object
-        setStats(updatedStats);
-      });
+      socket.on("ticket:statsUpdated", (updatedStats) => setStats(updatedStats));
 
-      // Cleanup listeners on unmount
       return () => {
         socket.off("ticket:new", handleRefresh);
         socket.off("ticket:statusUpdated", handleRefresh);
@@ -111,8 +97,8 @@ const AdminDashboard = () => {
         </div>
       </header>
 
-      {/* 5-Tile Stats Section */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      {/* 3x2 Grid Section */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
         <StatCard 
           icon={<Clock />} 
           title="Pending Today" 
@@ -126,6 +112,13 @@ const AdminDashboard = () => {
           value={stats.total_today} 
           color="blue" 
           description="Today's Total"
+        />
+        <StatCard 
+          icon={<Calendar />} 
+          title="Still Open" 
+          value={stats.still_open || 0} 
+          color="indigo" 
+          description="Pending Resolution"
         />
         <StatCard 
           icon={<CheckCircle />} 
@@ -152,7 +145,6 @@ const AdminDashboard = () => {
     </div>
   );
 };
-
 const MetaChip = ({ icon, label, value, color }) => (
   <div className="flex items-center gap-3 bg-white border border-slate-100 p-1.5 pr-4 rounded-2xl shadow-sm">
     <div className={`w-8 h-8 rounded-xl flex items-center justify-center bg-${color}-50 text-${color}-600`}>
@@ -170,6 +162,7 @@ const StatCard = ({ icon, title, value, color, description }) => {
     blue: "text-blue-600 bg-blue-50 border-blue-100",
     emerald: "text-emerald-600 bg-emerald-50 border-emerald-100",
     amber: "text-amber-600 bg-amber-50 border-amber-100",
+    indigo: "text-indigo-600 bg-indigo-50 border-indigo-100", // Added Indigo
     red: "text-red-600 bg-red-50 border-red-100",
     slate: "text-slate-600 bg-slate-50 border-slate-100",
   };
