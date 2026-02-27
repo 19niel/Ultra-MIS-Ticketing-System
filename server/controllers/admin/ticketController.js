@@ -352,30 +352,42 @@ export const getSupportUsers = async (req, res) => {
 
 export const updateAssignment = async (req, res) => {
   const { ticket_id } = req.params;
-  const { assigned_to } = req.body; // This is the employee_id
+  const { assigned_to } = req.body; // employee_id
 
   try {
+    // 1. Update the database
     await db.query(
       "UPDATE tickets SET assigned_to = ? WHERE ticket_id = ?",
       [assigned_to, ticket_id]
     );
 
-    // Fetch the name of the new assignee to send to the frontend
-    const [[assignee]] = await db.query(
-      "SELECT first_name, last_name FROM users WHERE employee_id = ?",
-      [assigned_to]
-    );
+    // 2. FETCH THE FULL TICKET (Copy the query from your status update)
+    const [[updatedTicket]] = await db.query(`
+      SELECT 
+        t.ticket_id, t.ticket_number, t.subject, t.description,
+        CONCAT(creator.first_name, ' ', creator.last_name) AS created_by,
+        CONCAT(assignee.first_name, ' ', assignee.last_name) AS assigned_to,
+        s.status_name AS status,
+        p.priority_name AS priority,
+        c.category_name AS category,
+        t.updated_at
+      FROM tickets t
+      LEFT JOIN users creator ON t.created_by = creator.employee_id
+      LEFT JOIN users assignee ON t.assigned_to = assignee.employee_id
+      LEFT JOIN ticket_status s ON t.status_id = s.status_id
+      LEFT JOIN priorities p ON t.priority_id = p.priority_id
+      LEFT JOIN categories c ON t.category_id = c.category_id
+      WHERE t.ticket_id = ?
+    `, [ticket_id]);
 
-    const fullName = assignee ? `${assignee.first_name} ${assignee.last_name}` : "Unassigned";
-
-    // 🔔 Emit the assignment change with the name
+    // 3. Emit the FULL ticket object
     const io = req.app.get("io");
-    io.emit("ticket:assigneeUpdated", {
-      ticket_id: parseInt(ticket_id),
-      assigned_to: fullName, 
-    });
+    if (io) {
+      // Use a consistent event name or the specific one your frontend listens for
+      io.emit("ticket:assigneeUpdated", updatedTicket); 
+    }
 
-    res.json({ message: "Assignment updated", assigned_to: fullName });
+    res.json({ message: "Assignment updated", ticket: updatedTicket });
   } catch (err) {
     console.error("Update assignment error:", err);
     res.status(500).json({ error: err.message });

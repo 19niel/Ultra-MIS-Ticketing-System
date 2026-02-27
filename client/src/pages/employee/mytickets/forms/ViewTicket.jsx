@@ -76,10 +76,12 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
   }, [ticket.ticket_id]);
 
   useEffect(() => {
-    setDisplayStatus(ticket.status);
-    setDisplayPriority(ticket.priority);
-    setDisplayAssignee(ticket.assigned_to);
-    fetchMessages();
+    if (ticket) {
+      setDisplayStatus(ticket.status);
+      setDisplayPriority(ticket.priority);
+      setDisplayAssignee(ticket.assigned_to); // This is "I Will Support"
+      fetchMessages();
+    }
   }, [ticket, fetchMessages]);
 
   useEffect(() => { scrollToBottom(); }, [conversations]);

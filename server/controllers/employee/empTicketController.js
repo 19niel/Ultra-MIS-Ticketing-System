@@ -44,29 +44,37 @@ export const getMyTickets = async (req, res) => {
 
     // Main Query - ADDED is_resolved, department_id, and branch_id
     const [rows] = await db.query(`
-      SELECT 
-        t.ticket_id, 
-        t.ticket_number, 
-        t.subject, 
-        t.description,
-        t.is_resolved,
-        t.department_id,
-        t.branch_id,
-        CONCAT(creator.first_name, ' ', creator.last_name) AS created_by,
-        s.status_name AS status, 
-        p.priority_name AS priority,
-        c.category_name AS category,
-        t.created_at, 
-        t.updated_at
-      FROM tickets t
-      LEFT JOIN users creator ON t.created_by = creator.employee_id
-      LEFT JOIN ticket_status s ON t.status_id = s.status_id
-      LEFT JOIN priorities p ON t.priority_id = p.priority_id
-      LEFT JOIN categories c ON t.category_id = c.category_id
-      ${whereSql}
-      ORDER BY t.created_at DESC
-      LIMIT ? OFFSET ?
-    `, [...params, limit, offset]);
+    SELECT 
+      t.ticket_id, 
+      t.ticket_number, 
+      t.subject, 
+      t.description,
+      t.is_resolved,
+      t.department_id,
+      t.branch_id,
+      CONCAT(creator.first_name, ' ', creator.last_name) AS created_by,
+      
+      /* ADD THIS LINE TO GET THE ASSIGNEE NAME */
+      CONCAT(assignee.first_name, ' ', assignee.last_name) AS assigned_to, 
+      
+      s.status_name AS status, 
+      p.priority_name AS priority,
+      c.category_name AS category,
+      t.created_at, 
+      t.updated_at
+    FROM tickets t
+    LEFT JOIN users creator ON t.created_by = creator.employee_id
+    
+    /* ADD THIS JOIN */
+    LEFT JOIN users assignee ON t.assigned_to = assignee.employee_id 
+    
+    LEFT JOIN ticket_status s ON t.status_id = s.status_id
+    LEFT JOIN priorities p ON t.priority_id = p.priority_id
+    LEFT JOIN categories c ON t.category_id = c.category_id
+    ${whereSql}
+    ORDER BY t.created_at DESC
+    LIMIT ? OFFSET ?
+  `, [...params, limit, offset]);
 
     // Count Query
     const [countRows] = await db.query(
