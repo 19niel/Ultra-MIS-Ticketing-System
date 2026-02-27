@@ -1,6 +1,6 @@
 import { db } from "../../db.js";
 import { sendEmail } from "../../services/EmailService.js";
-import { EmailCreateTicket } from "../../services/EmailTemplates.js";
+import { EmailCreateTicket, EmailCloseTicket } from "../../services/EmailTemplates.js";
 
 export const getAllTickets = async (req, res) => {
   try {
@@ -201,7 +201,7 @@ export const createTicket = async (req, res) => {
     // Fetch full ticket info for frontend (Fixed the Branch Join)
     const [[newTicket]] = await db.query(`
       SELECT 
-        t.ticket_id, t.ticket_number, t.subject,
+        t.ticket_id, t.ticket_number, t.subject, t.description,
         CONCAT(creator.first_name, ' ', creator.last_name) AS created_by,
         CONCAT(assignee.first_name, ' ', assignee.last_name) AS assigned_to,
         s.status_name AS status,
@@ -434,19 +434,19 @@ export const updatePriority = async (req, res) => {
   }
 };
 
-// ... in your ticketController.js
 export const closeTicket = async (req, res) => {
   const { ticket_id } = req.params;
   const { is_resolved } = req.body; 
-  const CLOSED_STATUS_ID = 4; // Matches your DB
+  const CLOSED_STATUS_ID = 4;
 
   try {
     if (is_resolved === undefined || is_resolved === null) {
       return res.status(400).json({ message: "Resolution status is required." });
     }
 
-    const now = new Date(); // Capture timestamp
+    const now = new Date();
 
+    // 1. Update the ticket in DB
     const [result] = await db.query(
       `UPDATE tickets 
        SET status_id = ?, is_resolved = ?, closed_at = ?, updated_at = ? 
@@ -456,26 +456,49 @@ export const closeTicket = async (req, res) => {
 
     if (result.affectedRows === 0) return res.status(404).json({ message: "Ticket not found" });
 
+    // 2. Fetch the ticket and user details for the email
+    // Join with your users table to get the reporter's email
+    const [ticketData] = await db.query(
+      `SELECT t.*, u.email as reporter_email, 
+      CONCAT(u.first_name, ' ', u.last_name) as created_by
+      FROM tickets t
+      JOIN users u ON t.created_by = u.employee_id
+      WHERE t.ticket_id = ?`,
+      [ticket_id]
+    );
+
+    const ticketInfo = {
+      ...ticketData[0],
+      is_resolved,
+      closed_at: now
+    };
+
+    // 3. Socket Emits
     const io = req.app.get("io");
     if (io) {
-      // Emit status update including the closed_at time for other clients
-      io.emit("ticket:statusUpdated", { 
-        ticket_id: parseInt(ticket_id), 
-        status: "Closed", 
-        closed_at: now 
-      });
-      io.emit("ticket:resolvedUpdated", { 
-        ticket_id: parseInt(ticket_id), 
-        is_resolved: parseInt(is_resolved) 
-      });
+      io.emit("ticket:statusUpdated", { ticket_id: parseInt(ticket_id), status: "Closed", closed_at: now });
+      io.emit("ticket:resolvedUpdated", { ticket_id: parseInt(ticket_id), is_resolved: parseInt(is_resolved) });
     }
 
-    // Send everything back to the frontend
+    // 4. Send Email to Reporter + CC to Admins
+    try {
+      await sendEmail({
+        to: ticketInfo.reporter_email, // The user who opened the ticket
+        cc: process.env.ADMIN_EMAILS,  // Your admin group from .env
+        subject: `[Closed] Ticket #${ticketInfo.ticket_number} - ${ticketInfo.subject}`,
+        html: EmailCloseTicket(ticketInfo),
+
+      });
+    } catch (emailErr) {
+      console.error("Email failed to send, but ticket was closed:", emailErr);
+    }
+
     res.json({ 
       message: "Ticket closed successfully", 
       is_resolved: parseInt(is_resolved),
       closed_at: now 
     });
+
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

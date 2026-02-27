@@ -10,7 +10,7 @@ import { socket } from "../../../../socket";
 import AdminEdit from "./AdminEdit";
 import CloseTicketModal from "./CloseTicketModal";
 
-const STATUS_ID_TO_NAME = { 1: "Open", 2: "In Progress", 3: "On Hold", 4: "Closed"};
+const STATUS_ID_TO_NAME = { 1: "Open", 2: "In Progress", 3: "On Hold"};
 const PRIORITY_ID_TO_NAME = { 1: "Low", 2: "Medium", 3: "High", 4: "Urgent" }; 
 const BASE_URL = "http://localhost:3000/api/tickets";
 
