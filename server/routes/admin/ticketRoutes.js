@@ -3,7 +3,8 @@ import {
     getAllTickets, 
     changeTicketStatus,
     updatePriority, 
-    createTicket, 
+    createTicket,
+    deleteTicket, 
     getLatestTicketNumber,
     getSupportUsers,
     updateAssignment,
@@ -28,6 +29,7 @@ router.put("/close/:ticket_id", closeTicket);
 
 router.get("/", getAllTickets);
 router.post("/", createTicket); 
+router.delete("/:ticket_id", deleteTicket); 
 router.put("/status/:ticket_id", changeTicketStatus);
 router.put("/priority/:ticket_id", updatePriority);
 router.get("/support-users", getSupportUsers);

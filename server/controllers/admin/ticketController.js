@@ -1,4 +1,6 @@
 import { db } from "../../db.js";
+import { sendEmail } from "../../services/EmailService.js";
+import { EmailCreateTicket } from "../../services/EmailTemplates.js";
 
 export const getAllTickets = async (req, res) => {
   try {
@@ -222,10 +224,69 @@ export const createTicket = async (req, res) => {
     if (io) io.emit("ticket:new", newTicket);
 
     res.status(201).json({ message: "Ticket created successfully", ticket_id: result.insertId });
+
+    // Email Admin
+  await sendEmail({
+    to: process.env.ADMIN_EMAILS, // Nodemailer accepts a comma-separated string directly
+    subject: `New Ticket - ${newTicket.ticket_number}`,
+    html: EmailCreateTicket(newTicket),
+  });
+
+    // Email Employee
+    if (newTicket.creator_email) {
+      await sendEmail({
+        to: newTicket.creator_email,
+        subject: `Your Ticket ${newTicket.ticket_number} Has Been Created`,
+        html: EmailCreateTicket(newTicket),
+      });
+    }
+
   } catch (err) {
     console.error("Create ticket error:", err);
     res.status(500).json({ error: err.message });
   }
+};
+
+
+export const deleteTicket = async (req, res) => {
+    const { ticket_id } = req.params;
+
+    if (!ticket_id) {
+        return res.status(400).json({ message: "Ticket ID is required" });
+    }
+
+    try {
+        // 1. Delete messages first (Foreign Key constraint safety)
+        // Ensure 'ticket_messages' matches your actual table name for messages
+        await db.query(
+            "DELETE FROM ticket_messages WHERE ticket_id = ?", 
+            [ticket_id]
+        );
+
+        // 2. Delete the ticket
+        const [result] = await db.query(
+            "DELETE FROM tickets WHERE ticket_id = ?", 
+            [ticket_id]
+        );
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: "Ticket not found" });
+        }
+
+        // 3. 🔔 Emit socket event so UI updates for everyone
+        const io = req.app.get("io");
+        if (io) {
+            io.emit("ticket:deleted", parseInt(ticket_id));
+        }
+
+        res.status(200).json({ message: "Ticket and related data deleted successfully" });
+    } catch (error) {
+        console.error("Delete Ticket Error:", error);
+        res.status(500).json({ 
+            message: "Internal Server Error", 
+            error: error.message 
+        });
+    }
 };
 
 // 🔔 Socket-Enabled Ticket Creation

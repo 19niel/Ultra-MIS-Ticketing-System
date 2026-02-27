@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
 import { 
   Search, Eye, Calendar, User, Tag, Filter, XCircle, 
-  ChevronLeft, ChevronRight, Building2, MapPin, CheckCircle2 
+  ChevronLeft, ChevronRight, Building2, MapPin, CheckCircle2,
+  Trash2 // Added Trash2 icon
 } from "lucide-react";
 import ViewTicket from "./forms/ViewTicket";
+import DeleteTicketForm from "./forms/DeleteTicket"; // Added Delete Form
 import { STATUS_MAP, PRIORITY_MAP, STATUS_COLOR, PRIORITY_COLOR } from "../../../mapping/ticketMapping";
 import { DEPARTMENT_MAP, BRANCH_MAP } from "../../../mapping/userDetailsMapping"; 
 import { socket } from "../../../socket";
@@ -15,6 +17,11 @@ export default function Tickets() {
   const [priorityFilter, setPriorityFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("all");
   const [selectedTicket, setSelectedTicket] = useState(null);
+  
+  // States for Deletion
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [ticketToDelete, setTicketToDelete] = useState(null);
+
   const [page, setPage] = useState(1);
   const [totalStats, setTotalStats] = useState({ totalPages: 1, totalTickets: 0 });
 
@@ -57,17 +64,23 @@ export default function Tickets() {
           ? { 
               ...t, 
               status: updatedData.status, 
-              is_resolved: updatedData.is_resolved, // Capture resolution state
+              is_resolved: updatedData.is_resolved,
               updated_at: updatedData.updated_at 
             } 
           : t
       ));
     });
 
+    // Added socket listener for deletion to keep UI in sync across clients
+    socket.on("ticket:deleted", (deletedId) => {
+      setTickets((prev) => prev.filter((t) => t.ticket_id !== deletedId));
+    });
+
     return () => {
       clearTimeout(delayDebounceFn);
       socket.off("ticket:new");
       socket.off("ticket:statusUpdated");
+      socket.off("ticket:deleted");
     };
   }, [page, search, statusFilter, priorityFilter, dateFilter]);
 
@@ -184,7 +197,6 @@ export default function Tickets() {
                 <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6">
                   <div className="flex-1 space-y-4">
                     
-                    {/* SINGLE ROW: ID + TITLE + DEPT + BRANCH */}
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                       <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-gray-100 text-gray-400 border border-gray-200 font-mono flex-shrink-0">
                         {ticket.ticket_number}
@@ -194,7 +206,6 @@ export default function Tickets() {
                         {ticket.subject}
                       </h3>
 
-                      {/* Location Badges */}
                       <div className="flex items-center gap-2">
                         <div className="flex items-center gap-1 px-2 py-0.5 bg-slate-100/50 rounded border border-slate-200/60">
                           <Building2 size={12} className="text-slate-400" />
@@ -212,7 +223,6 @@ export default function Tickets() {
                       </div>
                     </div>
                     
-                    {/* META INFO (User, Category, Date) */}
                     <div className="flex flex-wrap items-center gap-y-2 gap-x-6 text-sm text-gray-500">
                       <div className="flex items-center gap-2">
                         <div className="w-6 h-6 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
@@ -235,7 +245,6 @@ export default function Tickets() {
                   <div className="flex items-center gap-4">
                     <div className="flex flex-col items-end gap-2">
                       <div className="flex items-center gap-2">
-                        {/* New Resolved/Failed Indicator */}
                         {isClosed && (
                            <div className={`p-1 rounded-full border shadow-sm ${Number(ticket.is_resolved) === 1 ? 'bg-green-50 text-green-600 border-green-200' : 'bg-red-50 text-red-600 border-red-200'}`}>
                               {Number(ticket.is_resolved) === 1 ? <CheckCircle2 size={12}/> : <XCircle size={12}/>}
@@ -249,10 +258,26 @@ export default function Tickets() {
                         {PRIORITY_MAP[ticket.priority?.toLowerCase()] || ticket.priority}
                       </span>
                     </div>
-                    <button onClick={() => setSelectedTicket(ticket)} className="flex items-center gap-2 p-2.5 rounded-xl bg-gray-50 text-gray-400 hover:bg-blue-600 hover:text-white transition-all border border-gray-100 group-hover:border-blue-600 shadow-sm">
-                      <Eye size={20} />
-                      <span className="hidden sm:inline text-sm font-bold">View</span>
-                    </button>
+
+                    <div className="flex items-center gap-2">
+                      {/* View Button */}
+                      <button onClick={() => setSelectedTicket(ticket)} className="flex items-center gap-2 p-2.5 rounded-xl bg-gray-50 text-gray-400 hover:bg-blue-600 hover:text-white transition-all border border-gray-100 shadow-sm">
+                        <Eye size={20} />
+                        <span className="hidden sm:inline text-sm font-bold">View</span>
+                      </button>
+
+                      {/* Delete Button - New */}
+                      <button 
+                        onClick={() => {
+                          setTicketToDelete(ticket);
+                          setShowDeleteModal(true);
+                        }} 
+                        className="p-2.5 rounded-xl bg-gray-50 text-gray-400 hover:bg-red-600 hover:text-white transition-all border border-gray-100 shadow-sm"
+                        title="Delete Ticket"
+                      >
+                        <Trash2 size={20} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -261,7 +286,18 @@ export default function Tickets() {
         })}
       </div>
 
+      {/* MODALS */}
       {selectedTicket && <ViewTicket ticket={selectedTicket} onClose={() => setSelectedTicket(null)} />}
+      
+      <DeleteTicketForm
+        isOpen={showDeleteModal}
+        ticket={ticketToDelete}
+        onClose={() => {
+          setShowDeleteModal(false);
+          setTicketToDelete(null);
+        }}
+        onDeleted={fetchTickets}
+      />
     </div>
   );
 }
