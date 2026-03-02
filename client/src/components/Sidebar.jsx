@@ -48,7 +48,7 @@ export default function Sidebar({ role }) {
     role === "admin"
       ? adminNavItems
       : role === "tech_support"
-      ? techSupportNavItems
+      ? adminNavItems
       : employeeNavItems;
 
   return (

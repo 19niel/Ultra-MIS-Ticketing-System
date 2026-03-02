@@ -1,21 +1,21 @@
 export const DEPARTMENT_MAP = {
-  1: "MIS",
-  2: "HR",
-  3: "Sales",
-  4: "Finance",
-  5: "E-Commerce",
-  6: "Managers"
+  "1": "MIS",
+  "2": "HR",
+  "3": "Sales",
+  "4": "Finance",
+  "6": "E-Commerce",
+  "7": "Managers"
 };
 
 export const BRANCH_MAP = {
-  1: "Head Office Angono",
-  2: "Pet Plans Guadalupe",
-  3: "Sucat Office"
+  "1": "Head Office Angono",
+  "2": "Pet Plans Guadalupe",
+  "3": "Sucat Office"
 };
 
 
 export const ROLE_MAP = {
-  1: "Admin",
-  2: "Tech Support",
-  3: "Employee"
+  "1": "Admin",
+  "2": "Tech Support",
+  "3": "Employee"
 };

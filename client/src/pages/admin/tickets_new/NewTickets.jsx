@@ -136,8 +136,9 @@ export default function NewTicket() {
                 <option value="1">Hardware</option>
                 <option value="2">Software</option>
                 <option value="3">Network</option>
-                <option value="4">Email</option>
-                <option value="5">Other</option>
+                <option value="4">NetSuite</option>
+                <option value="5">Accounts</option>
+                <option value="6">Others</option>
               </select>
             </div>
 

@@ -195,11 +195,18 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
               </div>
             </section>
 
-            {/* DESCRIPTION BOX */}
+            {/* DESCRIPTION BOX WITH CATEGORY */}
             <section className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
-              <h4 className="text-gray-400 text-[11px] font-bold uppercase tracking-widest mb-3 flex items-center gap-2">
-                <Info size={14} /> Description
-              </h4>
+              <div className="flex justify-between items-start mb-3">
+                <h4 className="text-gray-400 text-[11px] font-bold uppercase tracking-widest flex items-center gap-2">
+                  <Info size={14} /> Description
+                </h4>
+                {/* NEW: Category Tag inside description box */}
+                <div className="flex items-center gap-1.5 px-2 py-0.5 bg-blue-50 border border-blue-100 rounded-md text-[10px] font-bold text-blue-600 uppercase">
+                  <Tag size={10} />
+                  {CATEGORY_MAP[ticket.category_id] || ticket.category_name || "Others"}
+                </div>
+              </div>
               <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap font-medium">
                 {ticket.description}
               </p>
@@ -219,9 +226,16 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
                     {displayAssignee || "Unassigned"}
                   </span>
                 </div>
+                {/* Category in list (kept for consistency, but updated logic) */}
                 <div className="flex justify-between items-center">
                   <span className="text-gray-500 flex items-center gap-2"><Tag size={14}/> Category</span>
-                  <span className="font-semibold text-gray-800">{CATEGORY_MAP[ticket.category?.toLowerCase()] || ticket.category}</span>
+                  <span className="font-semibold text-gray-800">
+                    {CATEGORY_MAP[ticket.category_id] || ticket.category_name || "Others"}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-500 flex items-center gap-2"><Clock size={14}/> Created</span>
+                  <span className="font-semibold text-gray-800 text-[12px]">{formatTimestamp(ticket.created_at)}</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-gray-500 flex items-center gap-2"><Clock size={14}/> Created</span>

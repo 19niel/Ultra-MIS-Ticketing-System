@@ -46,8 +46,8 @@ export default function LoginPage() {
         case 1: // Admin
           navigate("/admin");
           break;
-        case 2: // Tech Support
-          navigate("/techsupport");
+        case 2: // Tech Support Rightn now the tech support is an admin make another path if there are multiple tech supports later 
+          navigate("/admin");
           break;
         case 3: // Employee
           navigate("/employee");

@@ -21,7 +21,7 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
   const [displayPriority, setDisplayPriority] = useState(ticket.priority);
   const [displayAssignee, setDisplayAssignee] = useState(ticket.assigned_to);
   const [isResolved, setIsResolved] = useState(ticket.is_resolved);
-  const [displayClosedAt, setDisplayClosedAt] = useState(ticket.closed_at); // NEW STATE
+  const [displayClosedAt, setDisplayClosedAt] = useState(ticket.closed_at);
   const [conversations, setConversations] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(true);
   const [supportUsers, setSupportUsers] = useState([]);
@@ -34,7 +34,6 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
   const [selectedPriorityId, setSelectedPriorityId] = useState("");
   const [selectedAssigneeId, setSelectedAssigneeId] = useState("");
 
-  // Modal & Auth States
   const [isCloseModalOpen, setIsCloseModalOpen] = useState(false);
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
   const [isAuthorized, setIsAuthorized] = useState(false);
@@ -43,10 +42,8 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
   const messagesEndRef = useRef(null);
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
 
-  // Logic: Closed only if DB says closed AND admin hasn't bypassed it
-  const isClosed = (displayStatus?.toLowerCase() === 'closed' || displayStatus === "4" || displayStatus === "5") && !isAuthorized;
+  const isClosed = (displayStatus?.toLowerCase() === 'closed' || displayStatus === "4" || String(ticket.status_id) === "4") && !isAuthorized;
 
-  // HELPER: Logic to handle clicking fields when closed
   const attemptEdit = (field) => {
     if (isClosed) {
       setPendingAction(() => () => {
@@ -62,7 +59,6 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
     }
   };
 
-  // SOCKET LISTENERS
   useEffect(() => {
     if (!socket) return;
     const handleIncomingMessage = (data) => {
@@ -74,30 +70,19 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
     const handleStatusUpdate = (data) => { 
       if (data.ticket_id == ticket.ticket_id) {
         setDisplayStatus(STATUS_ID_TO_NAME[data.status] || data.status);
-        if (data.closed_at) setDisplayClosedAt(data.closed_at); // SYNC DATE VIA SOCKET
+        if (data.closed_at) setDisplayClosedAt(data.closed_at);
       }
     };
 
-    const handlePriorityUpdate = (data) => { if (data.ticket_id == ticket.ticket_id) setDisplayPriority(PRIORITY_ID_TO_NAME[data.priority] || data.priority); };
-    const handleAssigneeUpdate = (data) => { if (data.ticket_id == ticket.ticket_id) setDisplayAssignee(data.assigned_to); };
-    const handleResolvedUpdate = (data) => { if (data.ticket_id == ticket.ticket_id) setIsResolved(data.is_resolved); };
-
     socket.on("ticket:message:new", handleIncomingMessage);
     socket.on("ticket:statusUpdated", handleStatusUpdate);
-    socket.on("ticket:priorityUpdated", handlePriorityUpdate);
-    socket.on("ticket:assigneeUpdated", handleAssigneeUpdate);
-    socket.on("ticket:resolvedUpdated", handleResolvedUpdate);
 
     return () => {
       socket.off("ticket:message:new", handleIncomingMessage);
       socket.off("ticket:statusUpdated", handleStatusUpdate);
-      socket.off("ticket:priorityUpdated", handlePriorityUpdate);
-      socket.off("ticket:assigneeUpdated", handleAssigneeUpdate);
-      socket.off("ticket:resolvedUpdated", handleResolvedUpdate);
     };
   }, [ticket.ticket_id]);
 
-  // INITIAL DATA FETCH
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
@@ -126,13 +111,12 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
     setDisplayPriority(ticket.priority);
     setDisplayAssignee(ticket.assigned_to);
     setIsResolved(ticket.is_resolved);
-    setDisplayClosedAt(ticket.closed_at); // SYNC INITIAL DATA
+    setDisplayClosedAt(ticket.closed_at);
     fetchMessages();
   }, [ticket, fetchMessages]);
 
   useEffect(() => { scrollToBottom(); }, [conversations]);
 
-  // UPDATE HANDLERS
   const handleUpdate = async (type, body, successCallback) => {
     try {
       const endpoints = {
@@ -164,7 +148,7 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
       
       setIsResolved(resolutionValue);
       setDisplayStatus("Closed");
-      setDisplayClosedAt(responseData.closed_at || new Date().toISOString()); // UPDATE DATE IMMEDIATELY
+      setDisplayClosedAt(responseData.closed_at || new Date().toISOString());
       setIsAuthorized(false); 
       setIsCloseModalOpen(false);
       toast.success("Ticket closed successfully");
@@ -189,7 +173,6 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
   return (
     <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-0 sm:p-4 text-left">
       
-      {/* MODALS */}
       <AdminEdit 
         isOpen={isAdminModalOpen} 
         onClose={() => setIsAdminModalOpen(false)} 
@@ -249,7 +232,7 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
 
         <div className="flex flex-1 overflow-hidden">
           {/* LEFT COLUMN */}
-          <div className="hidden md:flex w-1/3 border-r flex-col bg-gray-50/50 p-6 space-y-8 overflow-y-auto">
+          <div className="hidden md:flex w-1/3 border-r flex-col bg-gray-50/50 p-6 space-y-6 overflow-y-auto">
             
             <section>
               <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3 block">Status & Priority</label>
@@ -292,20 +275,35 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
               </div>
             </section>
 
+            {/* CATEGORY SECTION */}
+            <section>
+              <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3 block">Category</label>
+              <div className="flex items-center gap-3 p-3 bg-white border border-gray-100 rounded-xl shadow-sm">
+                <Tag size={16} className="text-blue-500" />
+                <span className="text-sm font-bold text-gray-700">
+                  {CATEGORY_MAP[ticket.category_id] || ticket.category_name || "Uncategorized"}
+                </span>
+              </div>
+            </section>
+
             <section className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
               <h4 className="text-gray-400 text-[11px] font-bold uppercase tracking-widest mb-3 flex items-center gap-2"><Info size={14} /> Description</h4>
               <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap font-medium">{ticket.description}</p>
             </section>
 
             <section className="space-y-3">
-              <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest block">Location</label>
+              <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest block">Location Details</label>
               <div className="flex items-center gap-3 p-3 bg-white border border-gray-100 rounded-xl">
                 <Building2 size={16} className="text-gray-400" />
-                <span className="text-sm font-bold text-gray-700">{DEPARTMENT_MAP[ticket.department_id] || "N/A"}</span>
+                <span className="text-sm font-bold text-gray-700">
+                  {ticket.department_name || DEPARTMENT_MAP[ticket.department_id] || "N/A"}
+                </span>
               </div>
               <div className="flex items-center gap-3 p-3 bg-white border border-gray-100 rounded-xl">
                 <MapPin size={16} className="text-gray-400" />
-                <span className="text-sm font-bold text-gray-700">{BRANCH_MAP[ticket.branch_id] || "N/A"}</span>
+                <span className="text-sm font-bold text-gray-700">
+                  {ticket.branch_name || BRANCH_MAP[ticket.branch_id] || "N/A"}
+                </span>
               </div>
             </section>
 
@@ -343,7 +341,7 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
               </div>
 
               {/* TIMELINE SECTION FOR CLOSED TICKETS */}
-              {isClosed && (
+              {(isClosed || ticket.status_id === 4) && (
                 <div className="pt-2 border-t border-dashed border-gray-300">
                   <div className="flex justify-between items-center text-sm">
                     <span className="text-gray-500 flex items-center gap-2">
@@ -351,7 +349,7 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
                       Closed
                     </span>
                     <span className={`font-black ${Number(isResolved) === 1 ? 'text-green-600' : 'text-red-600'}`}>
-                      {formatTimestamp(displayClosedAt)}
+                      {formatTimestamp(displayClosedAt || ticket.closed_at)}
                     </span>
                   </div>
                 </div>

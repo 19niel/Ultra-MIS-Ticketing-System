@@ -1,24 +1,42 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { Filter, Calendar, Building2, Tag, CheckCircle2, XCircle, RefreshCcw, ArrowRight } from 'lucide-react';
+import { Filter, Calendar, Building2, Tag, CheckCircle2, XCircle, RefreshCcw, ArrowRight, User } from 'lucide-react';
 import { DEPARTMENT_MAP, BRANCH_MAP } from "../../../mapping/userDetailsMapping";
 
 const Reports = () => {
   const [data, setData] = useState([]);
   const [summary, setSummary] = useState({});
+  const [employees, setEmployees] = useState([]); // New state for employee list
   const [loading, setLoading] = useState(true);
   
   const [filters, setFilters] = useState({
     category: 'all',
     branch: 'all',
     department: 'all',
+    employee_id: 'all', // New filter
     is_resolved: 'all',
     dateRange: 'all',
     startDate: '',
     endDate: ''
   });
 
-  const fetchReports = async () => {
+  // Fetch employees for the dropdown
+  useEffect(() => {
+    const fetchEmployees = async () => {
+      try {
+        const res = await fetch(`http://localhost:3000/api/users/list`); // Adjust this URL to your specific route
+        if (res.ok) {
+          const result = await res.json();
+          setEmployees(result);
+        }
+      } catch (err) {
+        console.error("Failed to fetch employees:", err);
+      }
+    };
+    fetchEmployees();
+  }, []);
+
+  const fetchReports = useCallback(async () => {
     setLoading(true);
     try {
       const query = new URLSearchParams(filters).toString();
@@ -31,18 +49,30 @@ const Reports = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [filters]);
 
   useEffect(() => {
-    // Only trigger fetch if custom range is complete OR not using custom range
     if (filters.dateRange === 'custom') {
       if (filters.startDate && filters.endDate) fetchReports();
     } else {
       fetchReports();
     }
-  }, [filters]);
+  }, [filters, fetchReports]);
 
   const COLORS = ['#3b82f6', '#6366f1', '#8b5cf6', '#ec4899', '#f43f5e'];
+
+  const resetFilters = () => {
+    setFilters({
+      category: 'all',
+      branch: 'all',
+      department: 'all',
+      employee_id: 'all',
+      is_resolved: 'all',
+      dateRange: 'all',
+      startDate: '',
+      endDate: ''
+    });
+  };
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-8 bg-gray-50/30 min-h-screen text-left">
@@ -58,9 +88,9 @@ const Reports = () => {
         </button>
       </div>
 
-      {/* FILTER PANEL */}
+      {/* FILTER PANEL - Updated to 6 columns on larger screens to fit Employee */}
       <div className="p-4 bg-white rounded-2xl border border-gray-100 shadow-sm space-y-4">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
           <div className="space-y-1">
             <label className="text-[10px] font-black uppercase text-gray-400 ml-1">Date Range</label>
             <select 
@@ -92,6 +122,23 @@ const Reports = () => {
             </select>
           </div>
 
+          {/* NEW EMPLOYEE FILTER */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-black uppercase text-gray-400 ml-1">Employee</label>
+            <select 
+              className="w-full p-2 bg-gray-50 border-none rounded-lg text-xs font-bold" 
+              value={filters.employee_id} 
+              onChange={(e) => setFilters({...filters, employee_id: e.target.value})}
+            >
+              <option value="all">All Users</option>
+              {employees.map(emp => (
+                <option key={emp.employee_id} value={emp.employee_id}>
+                  {emp.first_name} {emp.last_name}
+                </option>
+              ))}
+            </select>
+          </div>
+
           <div className="space-y-1">
             <label className="text-[10px] font-black uppercase text-gray-400 ml-1">Outcome</label>
             <select className="w-full p-2 bg-gray-50 border-none rounded-lg text-xs font-bold" value={filters.is_resolved} onChange={(e) => setFilters({...filters, is_resolved: e.target.value})}>
@@ -103,7 +150,7 @@ const Reports = () => {
 
           <div className="flex items-end">
             <button 
-              onClick={() => setFilters({category:'all', branch:'all', department:'all', is_resolved:'all', dateRange:'all', startDate:'', endDate:''})}
+              onClick={resetFilters}
               className="w-full p-2 text-xs font-bold text-red-500 hover:bg-red-50 rounded-lg transition-colors"
             >
               Clear Filters

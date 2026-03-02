@@ -47,7 +47,7 @@ export const getAllTickets = async (req, res) => {
 
     const whereSql = whereClauses.length > 0 ? `WHERE ${whereClauses.join(" AND ")}` : "";
 
-    // 5. Get Total Count
+    // 5. Get Total Count (Must include Joins used in WHERE clauses)
     const [countRows] = await db.query(`
       SELECT COUNT(*) as total FROM tickets t
       LEFT JOIN users creator ON t.created_by = creator.employee_id
@@ -58,23 +58,28 @@ export const getAllTickets = async (req, res) => {
 
     const totalTickets = countRows[0].total;
 
-    // 6. Get Paginated Data (Updated with Department and Branch IDs)
+    // 6. Get Paginated Data
     const [rows] = await db.query(`
       SELECT
         t.ticket_id, 
         t.ticket_number, 
         t.subject, 
         t.description,
+        t.status_id,
+        t.priority_id,
+        t.category_id,
         CONCAT(creator.first_name, ' ', creator.last_name) AS created_by,
         CONCAT(assignee.first_name, ' ', assignee.last_name) AS assigned_to,
         
-        /* Added these two lines to get the IDs for your frontend mapping */
+        /* IMPORTANT: Get Department and Branch from the CREATOR of the ticket */
         creator.department_id, 
         creator.branch_id,
         
+        /* Get Status, Priority, and Category Names */
         s.status_name AS status, 
         p.priority_name AS priority,
-        c.category_name AS category, 
+        c.category_name AS category_name, 
+        
         t.closed_at, 
         t.is_resolved,
         t.created_at, 
