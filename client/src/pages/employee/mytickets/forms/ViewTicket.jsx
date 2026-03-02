@@ -1,18 +1,22 @@
 import { useEffect, useState, useRef, useCallback } from "react";
-import { X, Send, Clock, User, UserCog, Tag, MessageSquare, Info, CheckCircle2, AlertCircle, CalendarCheck, XCircle } from "lucide-react";
+import { 
+  X, Send, Clock, User, UserCog, Tag, MessageSquare, 
+  Info, CheckCircle2, AlertCircle, Building2, MapPin, 
+  CalendarCheck, XCircle 
+} from "lucide-react";
 import { STATUS_MAP, PRIORITY_MAP, STATUS_COLOR, PRIORITY_COLOR, CATEGORY_MAP } from "../../../../mapping/ticketMapping";
+import { DEPARTMENT_MAP, BRANCH_MAP } from "../../../../mapping/userDetailsMapping";
 import { toast } from "sonner";
 import { socket } from "../../../../socket"; 
 
 const BASE_URL = "http://localhost:3000/api/tickets";
 
-export default function ViewTicket({ ticket, onClose, userRole }) {
+export default function ViewTicket({ ticket, onClose }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [newMessage, setNewMessage] = useState("");
   const [displayStatus, setDisplayStatus] = useState(ticket.status);
   const [displayPriority, setDisplayPriority] = useState(ticket.priority);
   const [displayAssignee, setDisplayAssignee] = useState(ticket.assigned_to);
-  // NEW: State to track resolution status for real-time updates
   const [isResolvedFlag, setIsResolvedFlag] = useState(Number(ticket.is_resolved));
   const [conversations, setConversations] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(true);
@@ -20,38 +24,29 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
   const messagesEndRef = useRef(null);
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
 
-  // --- LOGIC FOR FAILED VS RESOLVED ---
-  // A ticket is "Finalized" if the status is Closed, Resolved, or Failed
+  // Logic for Banner & Status
   const isFinalized = 
     displayStatus?.toLowerCase() === "closed" || 
     displayStatus?.toLowerCase() === "resolved" || 
     displayStatus?.toLowerCase() === "failed" ||
-    displayStatus === "4"; // Fallback for ID-based status
+    String(ticket.status_id) === "4"; 
 
-  // If finalized, determine outcome based on the is_resolved flag (0 = Failed, 1 = Resolved)
   const isFailed = isFinalized && isResolvedFlag === 0;
   const isResolved = isFinalized && isResolvedFlag === 1;
 
-  // SOCKET LISTENERS
+  // Socket Listeners for Real-time Updates
   useEffect(() => {
     if (!socket) return;
     const handleIncomingMessage = (data) => {
       if (data.ticket_id === ticket.ticket_id) {
-        setConversations((prev) => {
-          const isDuplicate = prev.some(m => m.message_id === data.message_id);
-          if (isDuplicate) return prev;
-          return [...prev, data]; 
-        });
+        setConversations((prev) => prev.some(m => m.message_id === data.message_id) ? prev : [...prev, data]);
       }
     };
 
     const handleStatusUpdate = (data) => { 
       if (data.ticket_id === ticket.ticket_id) {
         setDisplayStatus(data.status);
-        // Update the flag if the socket payload includes it
-        if (data.is_resolved !== undefined) {
-            setIsResolvedFlag(Number(data.is_resolved));
-        }
+        if (data.is_resolved !== undefined) setIsResolvedFlag(Number(data.is_resolved));
       } 
     };
 
@@ -64,22 +59,19 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
     socket.on("ticket:assigneeUpdated", handleAssigneeUpdate);
 
     return () => {
-      socket.off("ticket:message:new", handleIncomingMessage);
-      socket.off("ticket:statusUpdated", handleStatusUpdate);
-      socket.off("ticket:priorityUpdated", handlePriorityUpdate);
-      socket.off("ticket:assigneeUpdated", handleAssigneeUpdate);
+      socket.off("ticket:message:new");
+      socket.off("ticket:statusUpdated");
+      socket.off("ticket:priorityUpdated");
+      socket.off("ticket:assigneeUpdated");
     };
   }, [ticket.ticket_id]);
 
   useEffect(() => {
     const fetchCurrentUser = async () => {
       try {
-        const res = await fetch("http://localhost:3000/auth/me", { method: "GET", credentials: "include" });
-        if (res.ok) {
-          const data = await res.json();
-          setCurrentUser(data.user);
-        }
-      } catch (err) { console.error("Failed to fetch current user session:", err); }
+        const res = await fetch("http://localhost:3000/auth/me", { credentials: "include" });
+        if (res.ok) setCurrentUser((await res.json()).user);
+      } catch (err) { console.error(err); }
     };
     fetchCurrentUser();
   }, []);
@@ -88,20 +80,17 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
     try {
       setLoadingMessages(true);
       const res = await fetch(`${BASE_URL}/${ticket.ticket_id}/messages`);
-      const data = await res.json();
-      setConversations(data);
-    } catch (err) { console.error("Failed to fetch messages", err); }
+      setConversations(await res.json());
+    } catch (err) { console.error(err); }
     finally { setLoadingMessages(false); }
   }, [ticket.ticket_id]);
 
   useEffect(() => {
-    if (ticket) {
-      setDisplayStatus(ticket.status);
-      setDisplayPriority(ticket.priority);
-      setDisplayAssignee(ticket.assigned_to);
-      setIsResolvedFlag(Number(ticket.is_resolved));
-      fetchMessages();
-    }
+    setDisplayStatus(ticket.status);
+    setDisplayPriority(ticket.priority);
+    setDisplayAssignee(ticket.assigned_to);
+    setIsResolvedFlag(Number(ticket.is_resolved));
+    fetchMessages();
   }, [ticket, fetchMessages]);
 
   useEffect(() => { scrollToBottom(); }, [conversations]);
@@ -114,8 +103,7 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ticket_id: ticket.ticket_id, user_id: currentUser.user_id, message: newMessage }),
       });
-      if (!res.ok) throw new Error();
-      setNewMessage("");
+      if (res.ok) setNewMessage("");
     } catch (err) { toast.error("Failed to send message"); }
   };
 
@@ -133,11 +121,9 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
             </div>
             <h2 className="text-lg font-bold text-gray-800 truncate">{ticket.subject}</h2>
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-              <X className="h-5 w-5 text-gray-500" />
-            </button>
-          </div>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+            <X className="h-5 w-5 text-gray-500" />
+          </button>
         </div>
 
         {/* OUTCOME INDICATOR (BANNER) */}
@@ -150,18 +136,14 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
                 {isFailed ? <XCircle size={18} /> : <CheckCircle2 size={18} />}
               </div>
               <div>
-                <p className={`text-[10px] font-black uppercase tracking-widest ${isFailed ? "text-red-500" : "text-emerald-600"}`}>
-                  Ticket Outcome
-                </p>
+                <p className={`text-[10px] font-black uppercase tracking-widest ${isFailed ? "text-red-500" : "text-emerald-600"}`}>Ticket Outcome</p>
                 <p className={`text-sm font-bold ${isFailed ? "text-red-700" : "text-emerald-800"}`}>
                   {isFailed ? "Issue Marked as Failed" : "Issue Successfully Resolved"}
                 </p>
               </div>
             </div>
             <div className="text-right">
-              <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-                {isFailed ? "Failure Logged" : "Resolution Date"}
-              </p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">{isFailed ? "Failure Logged" : "Resolution Date"}</p>
               <p className="text-xs font-bold text-gray-600 flex items-center gap-1.5 justify-end">
                 <CalendarCheck size={14} className="text-gray-400" />
                 {formatTimestamp(ticket.updated_at)}
@@ -171,87 +153,72 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
         )}
 
         <div className="flex flex-1 overflow-hidden">
-          {/* LEFT COLUMN: TICKET INFO */}
-          <div className="hidden md:flex w-1/3 border-r flex-col bg-gray-50/50 p-6 space-y-8 overflow-y-auto">
+          {/* LEFT COLUMN: COPIED ADMIN LAYOUT (READ-ONLY) */}
+          <div className="hidden md:flex w-1/3 border-r flex-col bg-gray-50/50 p-6 space-y-6 overflow-y-auto">
             
-            {/* STATUS & PRIORITY BADGES */}
             <section>
-              <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3 block">Current Status</label>
+              <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3 block">Status & Priority</label>
               <div className="space-y-3">
                 <div className={`flex items-center justify-between p-3 rounded-xl border shadow-sm ${
                     isFailed ? 'bg-red-50 border-red-200 text-red-700' : 
                     isResolved ? 'bg-emerald-50 border-emerald-200 text-emerald-700' :
-                    (STATUS_COLOR[displayStatus?.toLowerCase()] || 'bg-gray-100 border-gray-200')
+                    (STATUS_COLOR[displayStatus?.toLowerCase()] || 'bg-white border-gray-100')
                 }`}>
                   <span className="text-sm font-bold uppercase">
                     {isFailed ? "FAILED" : isResolved ? "RESOLVED" : (STATUS_MAP[displayStatus?.toLowerCase()] || displayStatus)}
                   </span>
-                  {isFailed ? <XCircle size={14} className="opacity-60" /> : <CheckCircle2 size={14} className="opacity-60" />}
+                  <Clock size={14} className="opacity-60" />
                 </div>
-                <div className={`flex items-center justify-between p-3 rounded-xl border shadow-sm ${PRIORITY_COLOR[displayPriority?.toLowerCase()] || 'bg-gray-100 border-gray-200'}`}>
+                <div className={`flex items-center justify-between p-3 rounded-xl border shadow-sm ${PRIORITY_COLOR[displayPriority?.toLowerCase()] || 'bg-white border-gray-100'}`}>
                   <span className="text-sm font-bold uppercase">{PRIORITY_MAP[displayPriority?.toLowerCase()] || displayPriority} Priority</span>
                   <AlertCircle size={14} className="opacity-60" />
                 </div>
               </div>
             </section>
 
-            {/* DESCRIPTION BOX WITH CATEGORY */}
-            <section className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
-              <div className="flex justify-between items-start mb-3">
-                <h4 className="text-gray-400 text-[11px] font-bold uppercase tracking-widest flex items-center gap-2">
-                  <Info size={14} /> Description
-                </h4>
-                {/* NEW: Category Tag inside description box */}
-                <div className="flex items-center gap-1.5 px-2 py-0.5 bg-blue-50 border border-blue-100 rounded-md text-[10px] font-bold text-blue-600 uppercase">
-                  <Tag size={10} />
-                  {CATEGORY_MAP[ticket.category_id] || ticket.category_name || "Others"}
-                </div>
+            <section>
+              <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3 block">Category</label>
+              <div className="flex items-center gap-3 p-3 bg-white border border-gray-100 rounded-xl shadow-sm">
+                <Tag size={16} className="text-blue-500" />
+                <span className="text-sm font-bold text-gray-700">
+                  {CATEGORY_MAP[ticket.category_id] || ticket.category_name || "Uncategorized"}
+                </span>
               </div>
-              <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap font-medium">
-                {ticket.description}
-              </p>
             </section>
 
-            {/* METADATA DETAILS */}
-            <section className="space-y-4">
-              <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest block">History Details</label>
-              <div className="space-y-4 text-sm">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-500 flex items-center gap-2"><User size={14}/> Reporter</span>
-                  <span className="font-semibold text-gray-800">{ticket.created_by}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-500 flex items-center gap-2"><UserCog size={14}/> Assignee</span>
-                  <span className={`font-semibold ${displayAssignee ? 'text-gray-800' : 'text-gray-400 italic'}`}>
-                    {displayAssignee || "Unassigned"}
-                  </span>
-                </div>
-                {/* Category in list (kept for consistency, but updated logic) */}
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-500 flex items-center gap-2"><Tag size={14}/> Category</span>
-                  <span className="font-semibold text-gray-800">
-                    {CATEGORY_MAP[ticket.category_id] || ticket.category_name || "Others"}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-500 flex items-center gap-2"><Clock size={14}/> Created</span>
-                  <span className="font-semibold text-gray-800 text-[12px]">{formatTimestamp(ticket.created_at)}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-500 flex items-center gap-2"><Clock size={14}/> Created</span>
-                  <span className="font-semibold text-gray-800 text-[12px]">{formatTimestamp(ticket.created_at)}</span>
-                </div>
-                {isFinalized && (
-                  <div className="flex justify-between items-center pt-2 border-t border-gray-100">
-                    <span className={`${isFailed ? 'text-red-600' : 'text-emerald-600'} flex items-center gap-2 font-bold`}>
-                      {isFailed ? <XCircle size={14}/> : <CalendarCheck size={14}/>} 
-                      {isFailed ? "Failed At" : "Finalized At"}
-                    </span>
-                    <span className={`font-black ${isFailed ? 'text-red-700' : 'text-emerald-700'} text-[12px]`}>
-                      {formatTimestamp(ticket.updated_at)}
-                    </span>
-                  </div>
-                )}
+            <section className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+              <h4 className="text-gray-400 text-[11px] font-bold uppercase tracking-widest mb-3 flex items-center gap-2"><Info size={14} /> Description</h4>
+              <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap font-medium">{ticket.description}</p>
+            </section>
+
+            <section className="space-y-3">
+              <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest block">Location Details</label>
+              <div className="flex items-center gap-3 p-3 bg-white border border-gray-100 rounded-xl">
+                <Building2 size={16} className="text-gray-400" />
+                <span className="text-sm font-bold text-gray-700">
+                  {ticket.department_name || DEPARTMENT_MAP[ticket.department_id] || "N/A"}
+                </span>
+              </div>
+              <div className="flex items-center gap-3 p-3 bg-white border border-gray-100 rounded-xl">
+                <MapPin size={16} className="text-gray-400" />
+                <span className="text-sm font-bold text-gray-700">
+                  {ticket.branch_name || BRANCH_MAP[ticket.branch_id] || "N/A"}
+                </span>
+              </div>
+            </section>
+
+            <section className="space-y-4 pt-4 border-t">
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-gray-500 flex items-center gap-2"><User size={14}/> Reporter</span>
+                <span className="font-bold text-gray-800">{ticket.created_by}</span>
+              </div>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-gray-500 flex items-center gap-2"><UserCog size={14}/> Assignee</span>
+                <span className="font-bold text-gray-800">{displayAssignee || "Unassigned"}</span>
+              </div>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-gray-500 flex items-center gap-2"><Clock size={14}/> Created</span>
+                <span className="font-bold text-gray-800">{formatTimestamp(ticket.created_at)}</span>
               </div>
             </section>
           </div>
@@ -263,24 +230,19 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
             </div>
             <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50/10">
               {loadingMessages ? (
-                <div className="flex flex-col items-center justify-center py-10 text-gray-400 space-y-2">
-                  <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                  <span className="text-xs font-bold uppercase">Loading Messages</span>
-                </div>
-              ) : conversations.length === 0 ? (
-                <div className="text-center py-10 text-gray-400 text-sm italic">No conversation history yet.</div>
+                <div className="flex justify-center py-10"><div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div></div>
               ) : conversations.map((msg) => (
-                <div key={msg.message_id || Math.random()} className="flex gap-4 animate-in slide-in-from-bottom-2 duration-300">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-slate-700 to-slate-900 flex items-center justify-center text-white font-bold shadow-md flex-shrink-0">
+                <div key={msg.message_id || Math.random()} className="flex gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-slate-700 to-slate-900 flex items-center justify-center text-white font-bold flex-shrink-0">
                     {msg.first_name?.[0]}{msg.last_name?.[0]}
                   </div>
                   <div className="flex-1">
                     <div className="flex items-baseline gap-2 mb-1">
                       <span className="font-bold text-sm text-gray-900">{msg.first_name} {msg.last_name}</span>
-                      <span className="text-[9px] font-black text-blue-500 uppercase px-1.5 py-0.5 bg-blue-50 rounded border border-blue-100 tracking-tighter">{msg.senderRole}</span>
-                      <span className="text-[11px] text-gray-400 ml-auto font-medium">{formatTimestamp(msg.created_at)}</span>
+                      <span className="text-[10px] font-bold text-blue-500 uppercase px-1.5 py-0.5 bg-blue-50 rounded border border-blue-100">{msg.senderRole}</span>
+                      <span className="text-[11px] text-gray-400 ml-auto">{formatTimestamp(msg.created_at)}</span>
                     </div>
-                    <div className="bg-white p-4 rounded-2xl rounded-tl-none border border-gray-200 shadow-sm text-sm text-gray-700 leading-relaxed ring-1 ring-black/[0.02]">
+                    <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm text-sm text-gray-700 whitespace-pre-wrap">
                       {msg.message}
                     </div>
                   </div>
@@ -289,29 +251,23 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* MESSAGE INPUT */}
-            {!isFinalized && (
+            {!isFinalized ? (
               <div className="p-4 bg-white border-t">
-                <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-2xl p-2 focus-within:ring-2 focus-within:ring-blue-500 focus-within:bg-white transition-all shadow-inner">
+                <div className="flex items-center gap-2 bg-gray-50 border rounded-2xl p-2 focus-within:ring-2 focus-within:ring-blue-500 transition-all">
                   <input
-                    type="text"
-                    placeholder="Type your message to support..."
-                    value={newMessage}
+                    type="text" placeholder="Type your reply..." value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
-                    className="flex-1 bg-transparent px-4 py-2 text-sm outline-none text-gray-800"
+                    className="flex-1 bg-transparent px-4 py-2 text-sm outline-none"
                   />
-                  <button onClick={handleSendMessage} disabled={!newMessage.trim()}
-                    className="bg-blue-600 text-white p-2.5 rounded-xl hover:bg-blue-700 disabled:opacity-50 shadow-lg shadow-blue-200 transition-all active:scale-95"
-                  >
+                  <button onClick={handleSendMessage} disabled={!newMessage.trim()} className="bg-blue-600 text-white p-2.5 rounded-xl hover:bg-blue-700 transition-all disabled:opacity-50">
                     <Send size={18} />
                   </button>
                 </div>
               </div>
-            )}
-            {isFinalized && (
-              <div className="p-4 bg-gray-100 border-t text-center text-xs font-bold text-gray-400 uppercase tracking-widest">
-                This ticket is finalized. Conversations are archived.
+            ) : (
+              <div className="p-4 bg-gray-50 border-t text-center text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                Conversation archived (Ticket Finalized)
               </div>
             )}
           </div>
