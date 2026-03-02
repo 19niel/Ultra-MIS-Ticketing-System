@@ -51,36 +51,59 @@ export default function Tickets() {
   useEffect(() => { setPage(1); }, [search, statusFilter, priorityFilter, dateFilter]);
 
   useEffect(() => {
-    const delayDebounceFn = setTimeout(() => { fetchTickets(); }, 300);
+      const delayDebounceFn = setTimeout(() => { fetchTickets(); }, 300);
 
-    socket.on("ticket:new", (newTicket) => {
-      if (page === 1) setTickets((prev) => [newTicket, ...prev].slice(0, 10));
-    });
+      // 1. New Ticket Added
+      socket.on("ticket:new", (newTicket) => {
+        if (page === 1) setTickets((prev) => [newTicket, ...prev].slice(0, 10));
+      });
 
-    socket.on("ticket:statusUpdated", (updatedData) => {
-      setTickets((prev) => prev.map((t) => 
-        t.ticket_id === updatedData.ticket_id 
-          ? { 
-              ...t, 
-              status: updatedData.status, 
-              is_resolved: updatedData.is_resolved,
-              updated_at: updatedData.updated_at 
-            } 
-          : t
-      ));
-    });
+      // 2. Status & Resolution Updated (Handles the Icons and Status Badges)
+      socket.on("ticket:statusUpdated", (updatedData) => {
+        setTickets((prev) => prev.map((t) => 
+          t.ticket_id === updatedData.ticket_id 
+            ? { 
+                ...t, 
+                status: updatedData.status, 
+                is_resolved: updatedData.is_resolved, // This updates the checkmark/X icon
+                updated_at: updatedData.updated_at 
+              } 
+            : t
+        ));
+      });
 
-    socket.on("ticket:deleted", (deletedId) => {
-      setTickets((prev) => prev.filter((t) => t.ticket_id !== deletedId));
-    });
+      // 3. Priority Updated (NEW)
+      socket.on("ticket:priorityUpdated", (updatedData) => {
+        setTickets((prev) => prev.map((t) => 
+          t.ticket_id === updatedData.ticket_id 
+            ? { ...t, priority: updatedData.priority } 
+            : t
+        ));
+      });
 
-    return () => {
-      clearTimeout(delayDebounceFn);
-      socket.off("ticket:new");
-      socket.off("ticket:statusUpdated");
-      socket.off("ticket:deleted");
-    };
-  }, [page, search, statusFilter, priorityFilter, dateFilter]);
+      // 4. Assignee Updated (NEW)
+      socket.on("ticket:assigneeUpdated", (updatedData) => {
+        setTickets((prev) => prev.map((t) => 
+          t.ticket_id === parseInt(updatedData.ticket_id) 
+            ? { ...t, assigned_to: updatedData.assigned_to } 
+            : t
+        ));
+      });
+
+      // 5. Ticket Deleted
+      socket.on("ticket:deleted", (deletedId) => {
+        setTickets((prev) => prev.filter((t) => t.ticket_id !== deletedId));
+      });
+
+      return () => {
+        clearTimeout(delayDebounceFn);
+        socket.off("ticket:new");
+        socket.off("ticket:statusUpdated");
+        socket.off("ticket:priorityUpdated");
+        socket.off("ticket:assigneeUpdated");
+        socket.off("ticket:deleted");
+      };
+    }, [page, search, statusFilter, priorityFilter, dateFilter]);
 
   // NEW: Updated formatter to include Time
   const formatDateTime = (dateString) => {
