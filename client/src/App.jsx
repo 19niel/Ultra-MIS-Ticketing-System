@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import LoginPage from "./pages/LoginPage";
 import RegisterPage from "./pages/RegisterPage";
 import ProtectedRoute from "./utils/ProtectedRoute";
-
+import { Toaster } from 'sonner';
 // Admin
 import AdminLayout from "./pages/admin/AdminLayout";
 import AdminDashboard from "./pages/admin/dashboard/Dashboard";
@@ -30,6 +30,7 @@ import TechSupportDashboard from "./pages/techsupport/dashboard/Dashboard";
 export default function App() {
   return (
     <BrowserRouter>
+    <Toaster position="top-right" richColors />
       <Routes>
         {/* Public */}
         <Route path="/" element={<LoginPage />} />

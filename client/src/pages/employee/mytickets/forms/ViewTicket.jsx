@@ -14,10 +14,14 @@ const BASE_URL = "http://localhost:3000/api/tickets";
 export default function ViewTicket({ ticket, onClose }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [newMessage, setNewMessage] = useState("");
+  
+  // Local Display States for Real-time Updates
   const [displayStatus, setDisplayStatus] = useState(ticket.status);
   const [displayPriority, setDisplayPriority] = useState(ticket.priority);
   const [displayAssignee, setDisplayAssignee] = useState(ticket.assigned_to);
   const [isResolvedFlag, setIsResolvedFlag] = useState(Number(ticket.is_resolved));
+  const [lastUpdatedAt, setLastUpdatedAt] = useState(ticket.updated_at);
+  
   const [conversations, setConversations] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(true);
 
@@ -34,24 +38,37 @@ export default function ViewTicket({ ticket, onClose }) {
   const isFailed = isFinalized && isResolvedFlag === 0;
   const isResolved = isFinalized && isResolvedFlag === 1;
 
-  // Socket Listeners for Real-time Updates
+  // --- Socket Listeners ---
   useEffect(() => {
     if (!socket) return;
+
     const handleIncomingMessage = (data) => {
-      if (data.ticket_id === ticket.ticket_id) {
-        setConversations((prev) => prev.some(m => m.message_id === data.message_id) ? prev : [...prev, data]);
+      if (Number(data.ticket_id) === Number(ticket.ticket_id)) {
+        setConversations((prev) => 
+          prev.some(m => m.message_id === data.message_id) ? prev : [...prev, data]
+        );
       }
     };
 
     const handleStatusUpdate = (data) => { 
-      if (data.ticket_id === ticket.ticket_id) {
+      if (Number(data.ticket_id) === Number(ticket.ticket_id)) {
         setDisplayStatus(data.status);
         if (data.is_resolved !== undefined) setIsResolvedFlag(Number(data.is_resolved));
+        if (data.updated_at) setLastUpdatedAt(data.updated_at);
       } 
     };
 
-    const handlePriorityUpdate = (data) => { if (data.ticket_id === ticket.ticket_id) setDisplayPriority(data.priority); };
-    const handleAssigneeUpdate = (data) => { if (parseInt(data.ticket_id) === parseInt(ticket.ticket_id)) setDisplayAssignee(data.assigned_to); };
+    const handlePriorityUpdate = (data) => { 
+      if (Number(data.ticket_id) === Number(ticket.ticket_id)) {
+        setDisplayPriority(data.priority);
+      } 
+    };
+
+    const handleAssigneeUpdate = (data) => { 
+      if (Number(data.ticket_id) === Number(ticket.ticket_id)) {
+        setDisplayAssignee(data.assigned_to);
+      } 
+    };
 
     socket.on("ticket:message:new", handleIncomingMessage);
     socket.on("ticket:statusUpdated", handleStatusUpdate);
@@ -59,11 +76,21 @@ export default function ViewTicket({ ticket, onClose }) {
     socket.on("ticket:assigneeUpdated", handleAssigneeUpdate);
 
     return () => {
-      socket.off("ticket:message:new");
-      socket.off("ticket:statusUpdated");
-      socket.off("ticket:priorityUpdated");
-      socket.off("ticket:assigneeUpdated");
+      socket.off("ticket:message:new", handleIncomingMessage);
+      socket.off("ticket:statusUpdated", handleStatusUpdate);
+      socket.off("ticket:priorityUpdated", handlePriorityUpdate);
+      socket.off("ticket:assigneeUpdated", handleAssigneeUpdate);
     };
+  }, [ticket.ticket_id]);
+
+  // --- Data Fetching ---
+  const fetchMessages = useCallback(async () => {
+    try {
+      setLoadingMessages(true);
+      const res = await fetch(`${BASE_URL}/${ticket.ticket_id}/messages`);
+      if (res.ok) setConversations(await res.json());
+    } catch (err) { console.error(err); }
+    finally { setLoadingMessages(false); }
   }, [ticket.ticket_id]);
 
   useEffect(() => {
@@ -73,23 +100,14 @@ export default function ViewTicket({ ticket, onClose }) {
         if (res.ok) setCurrentUser((await res.json()).user);
       } catch (err) { console.error(err); }
     };
+
     fetchCurrentUser();
-  }, []);
-
-  const fetchMessages = useCallback(async () => {
-    try {
-      setLoadingMessages(true);
-      const res = await fetch(`${BASE_URL}/${ticket.ticket_id}/messages`);
-      setConversations(await res.json());
-    } catch (err) { console.error(err); }
-    finally { setLoadingMessages(false); }
-  }, [ticket.ticket_id]);
-
-  useEffect(() => {
+    // Reset local states to new ticket props when ticket changes
     setDisplayStatus(ticket.status);
     setDisplayPriority(ticket.priority);
     setDisplayAssignee(ticket.assigned_to);
     setIsResolvedFlag(Number(ticket.is_resolved));
+    setLastUpdatedAt(ticket.updated_at);
     fetchMessages();
   }, [ticket, fetchMessages]);
 
@@ -101,7 +119,11 @@ export default function ViewTicket({ ticket, onClose }) {
       const res = await fetch(`${BASE_URL}/messages`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ticket_id: ticket.ticket_id, user_id: currentUser.user_id, message: newMessage }),
+        body: JSON.stringify({ 
+          ticket_id: ticket.ticket_id, 
+          user_id: currentUser.user_id, 
+          message: newMessage 
+        }),
       });
       if (res.ok) setNewMessage("");
     } catch (err) { toast.error("Failed to send message"); }
@@ -146,14 +168,14 @@ export default function ViewTicket({ ticket, onClose }) {
               <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">{isFailed ? "Failure Logged" : "Resolution Date"}</p>
               <p className="text-xs font-bold text-gray-600 flex items-center gap-1.5 justify-end">
                 <CalendarCheck size={14} className="text-gray-400" />
-                {formatTimestamp(ticket.updated_at)}
+                {formatTimestamp(lastUpdatedAt)}
               </p>
             </div>
           </div>
         )}
 
         <div className="flex flex-1 overflow-hidden">
-          {/* LEFT COLUMN: COPIED ADMIN LAYOUT (READ-ONLY) */}
+          {/* SIDEBAR */}
           <div className="hidden md:flex w-1/3 border-r flex-col bg-gray-50/50 p-6 space-y-6 overflow-y-auto">
             
             <section>
@@ -176,34 +198,26 @@ export default function ViewTicket({ ticket, onClose }) {
               </div>
             </section>
 
-            <section>
-              <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3 block">Category</label>
-              <div className="flex items-center gap-3 p-3 bg-white border border-gray-100 rounded-xl shadow-sm">
-                <Tag size={16} className="text-blue-500" />
-                <span className="text-sm font-bold text-gray-700">
-                  {CATEGORY_MAP[ticket.category_id] || ticket.category_name || "Uncategorized"}
-                </span>
-              </div>
-            </section>
-
             <section className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
               <h4 className="text-gray-400 text-[11px] font-bold uppercase tracking-widest mb-3 flex items-center gap-2"><Info size={14} /> Description</h4>
               <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap font-medium">{ticket.description}</p>
             </section>
 
             <section className="space-y-3">
-              <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest block">Location Details</label>
-              <div className="flex items-center gap-3 p-3 bg-white border border-gray-100 rounded-xl">
-                <Building2 size={16} className="text-gray-400" />
+              <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest block">Details</label>
+              <div className="flex items-center gap-3 p-3 bg-white border border-gray-100 rounded-xl shadow-sm">
+                <Tag size={16} className="text-blue-500" />
                 <span className="text-sm font-bold text-gray-700">
-                  {ticket.department_name || DEPARTMENT_MAP[ticket.department_id] || "N/A"}
+                  {CATEGORY_MAP[ticket.category_id] || CATEGORY_MAP[ticket.category] || ticket.category_name || "Others"}
                 </span>
               </div>
               <div className="flex items-center gap-3 p-3 bg-white border border-gray-100 rounded-xl">
+                <Building2 size={16} className="text-gray-400" />
+                <span className="text-sm font-bold text-gray-700">{ticket.department_name || DEPARTMENT_MAP[ticket.department_id] || "N/A"}</span>
+              </div>
+              <div className="flex items-center gap-3 p-3 bg-white border border-gray-100 rounded-xl">
                 <MapPin size={16} className="text-gray-400" />
-                <span className="text-sm font-bold text-gray-700">
-                  {ticket.branch_name || BRANCH_MAP[ticket.branch_id] || "N/A"}
-                </span>
+                <span className="text-sm font-bold text-gray-700">{ticket.branch_name || BRANCH_MAP[ticket.branch_id] || "N/A"}</span>
               </div>
             </section>
 
@@ -223,7 +237,7 @@ export default function ViewTicket({ ticket, onClose }) {
             </section>
           </div>
 
-          {/* RIGHT COLUMN: CONVERSATION */}
+          {/* CHAT SECTION */}
           <div className="flex-1 flex flex-col bg-white">
             <div className="p-4 border-b flex items-center gap-2 text-gray-500 font-semibold text-sm bg-gray-50/30">
               <MessageSquare size={16} /> Conversation Activity

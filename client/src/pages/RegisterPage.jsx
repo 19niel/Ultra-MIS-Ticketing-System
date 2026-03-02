@@ -51,7 +51,11 @@ export default function RegisterPage() {
         return;
       }
 
-      toast.success("Account created successfully! Please login.");
+
+      toast.success(`Thank you for making an account Sir/Ma'am ${formData.first_name}!`, {
+        description: `Use your email (${formData.email}) as your username and your entered password to login.`,
+        duration: 6000, // Giving them extra time to read the details
+      });
       navigate("/"); // Redirect to Login
     } catch (err) {
       console.error("Registration Error:", err);

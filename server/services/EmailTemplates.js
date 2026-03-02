@@ -20,9 +20,13 @@ export const EmailCreateTicket = (ticket) => {
 
         <div style="padding: 40px 30px;">
           <h1 style="margin: 0 0 10px 0; font-size: 22px; font-weight: 800; color: #0f172a; line-height: 1.3;">
-            Ticket Number: ${ticket.subject}
+            Ticket Subject: ${ticket.subject}
           </h1>
-          <p style="margin: 0; color: #64748b; font-size: 14px;">Reference ID: <span style="color: #3b82f6; font-weight: 600;">#${ticket.ticket_number}</span></p>
+          <p style="margin: 0; color: #64748b; font-size: 14px;">Ticket ID: <span style="color: #3b82f6; font-weight: 600;">#${ticket.ticket_number}</span></p>
+
+          <div style="margin-top: 12px; color: #475569; font-size: 13px; font-weight: 600; line-height: 1.5; white-space: pre-wrap;">
+            Category: ${ticket.category || 'No description provided.'}
+          </div>
 
           <div style="margin-top: 12px; color: #475569; font-size: 13px; font-weight: 600; line-height: 1.5; white-space: pre-wrap;">
             Description: ${ticket.description || 'No description provided.'}

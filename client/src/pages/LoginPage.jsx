@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { User, Lock } from "lucide-react";
 
+import { toast } from "sonner"; // 1. Import toast
+
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -23,7 +25,8 @@ export default function LoginPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        alert(data.message || "Login failed");
+        // 2. Error Toast
+        toast.error(data.message || "Login failed. Please check your credentials.");
         setLoading(false);
         return;
       }
@@ -41,28 +44,33 @@ export default function LoginPage() {
         })
       );
 
+      // 3. Success Toast
+      toast.success(`You Have Logged In Successfully, ${data.user.first_name}!`, {
+        className: "bg-blue-600 text-white p-6 border-none",
+      });
+
       // Redirect based on role
       switch (data.user.role_id) {
         case 1: // Admin
           navigate("/admin");
           break;
-        case 2: // Tech Support Rightn now the tech support is an admin make another path if there are multiple tech supports later 
+        case 2: // Tech Support
           navigate("/admin");
           break;
         case 3: // Employee
           navigate("/employee");
           break;
         default:
-          alert("Unknown role");
+          toast.warning("Access denied: Unknown role.");
       }
     } catch (err) {
       console.error(err);
-      alert("Server error");
+      // 4. Server Error Toast
+      toast.error("Connection error. Is the server running?");
     } finally {
       setLoading(false);
     }
   };
-
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
       <div className="w-full max-w-md bg-white p-6 rounded-lg shadow-lg">
