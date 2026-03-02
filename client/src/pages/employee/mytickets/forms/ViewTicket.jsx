@@ -12,16 +12,25 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
   const [displayStatus, setDisplayStatus] = useState(ticket.status);
   const [displayPriority, setDisplayPriority] = useState(ticket.priority);
   const [displayAssignee, setDisplayAssignee] = useState(ticket.assigned_to);
+  // NEW: State to track resolution status for real-time updates
+  const [isResolvedFlag, setIsResolvedFlag] = useState(Number(ticket.is_resolved));
   const [conversations, setConversations] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(true);
 
   const messagesEndRef = useRef(null);
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
 
-  // Determine if ticket is finalized
-  const isClosed = displayStatus?.toLowerCase() === "closed";
-  const isResolved = displayStatus?.toLowerCase() === "resolved";
-  const isFailed = displayStatus?.toLowerCase() === "failed"; // If you have a failed state
+  // --- LOGIC FOR FAILED VS RESOLVED ---
+  // A ticket is "Finalized" if the status is Closed, Resolved, or Failed
+  const isFinalized = 
+    displayStatus?.toLowerCase() === "closed" || 
+    displayStatus?.toLowerCase() === "resolved" || 
+    displayStatus?.toLowerCase() === "failed" ||
+    displayStatus === "4"; // Fallback for ID-based status
+
+  // If finalized, determine outcome based on the is_resolved flag (0 = Failed, 1 = Resolved)
+  const isFailed = isFinalized && isResolvedFlag === 0;
+  const isResolved = isFinalized && isResolvedFlag === 1;
 
   // SOCKET LISTENERS
   useEffect(() => {
@@ -35,7 +44,17 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
         });
       }
     };
-    const handleStatusUpdate = (data) => { if (data.ticket_id === ticket.ticket_id) setDisplayStatus(data.status); };
+
+    const handleStatusUpdate = (data) => { 
+      if (data.ticket_id === ticket.ticket_id) {
+        setDisplayStatus(data.status);
+        // Update the flag if the socket payload includes it
+        if (data.is_resolved !== undefined) {
+            setIsResolvedFlag(Number(data.is_resolved));
+        }
+      } 
+    };
+
     const handlePriorityUpdate = (data) => { if (data.ticket_id === ticket.ticket_id) setDisplayPriority(data.priority); };
     const handleAssigneeUpdate = (data) => { if (parseInt(data.ticket_id) === parseInt(ticket.ticket_id)) setDisplayAssignee(data.assigned_to); };
 
@@ -79,7 +98,8 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
     if (ticket) {
       setDisplayStatus(ticket.status);
       setDisplayPriority(ticket.priority);
-      setDisplayAssignee(ticket.assigned_to); // This is "I Will Support"
+      setDisplayAssignee(ticket.assigned_to);
+      setIsResolvedFlag(Number(ticket.is_resolved));
       fetchMessages();
     }
   }, [ticket, fetchMessages]);
@@ -102,16 +122,16 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
   const formatTimestamp = (ts) => ts ? new Date(ts).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "N/A";
 
   return (
-    <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-0 sm:p-4">
+    <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-0 sm:p-4 text-left">
       <div className="bg-white w-full max-w-6xl h-full sm:h-[85vh] sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
         
         {/* TOP BAR */}
-        <div className="px-6 py-4 border-b flex items-center justify-between bg-white text-left relative">
+        <div className="px-6 py-4 border-b flex items-center justify-between bg-white relative">
           <div className="flex items-center gap-4">
             <div className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-bold border border-blue-100 uppercase tracking-wider">
               {ticket.ticket_number}
             </div>
-            <h2 className="text-lg font-bold text-gray-800 truncate ">{ticket.subject}</h2>
+            <h2 className="text-lg font-bold text-gray-800 truncate">{ticket.subject}</h2>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors">
@@ -120,8 +140,8 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
           </div>
         </div>
 
-        {/* OUTCOME INDICATOR (BANNER) - Shown only when Resolved or Closed */}
-        {(isResolved || isClosed || isFailed) && (
+        {/* OUTCOME INDICATOR (BANNER) */}
+        {isFinalized && (
           <div className={`px-6 py-3 flex items-center justify-between border-b animate-in slide-in-from-top duration-500 ${
             isFailed ? "bg-red-50 border-red-100" : "bg-emerald-50 border-emerald-100"
           }`}>
@@ -134,12 +154,14 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
                   Ticket Outcome
                 </p>
                 <p className={`text-sm font-bold ${isFailed ? "text-red-700" : "text-emerald-800"}`}>
-                  {isFailed ? "Issue Marked as Unresolved/Failed" : "Issue Successfully Resolved"}
+                  {isFailed ? "Issue Marked as Failed" : "Issue Successfully Resolved"}
                 </p>
               </div>
             </div>
             <div className="text-right">
-              <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Closure Date</p>
+              <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                {isFailed ? "Failure Logged" : "Resolution Date"}
+              </p>
               <p className="text-xs font-bold text-gray-600 flex items-center gap-1.5 justify-end">
                 <CalendarCheck size={14} className="text-gray-400" />
                 {formatTimestamp(ticket.updated_at)}
@@ -150,15 +172,21 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
 
         <div className="flex flex-1 overflow-hidden">
           {/* LEFT COLUMN: TICKET INFO */}
-          <div className="hidden md:flex w-1/3 border-r flex-col bg-gray-50/50 p-6 space-y-8 overflow-y-auto text-left text-pretty">
+          <div className="hidden md:flex w-1/3 border-r flex-col bg-gray-50/50 p-6 space-y-8 overflow-y-auto">
             
             {/* STATUS & PRIORITY BADGES */}
             <section>
               <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-3 block">Current Status</label>
               <div className="space-y-3">
-                <div className={`flex items-center justify-between p-3 rounded-xl border shadow-sm ${STATUS_COLOR[displayStatus?.toLowerCase()] || 'bg-gray-100 border-gray-200'}`}>
-                  <span className="text-sm font-bold uppercase">{STATUS_MAP[displayStatus?.toLowerCase()] || displayStatus}</span>
-                  <CheckCircle2 size={14} className="opacity-60" />
+                <div className={`flex items-center justify-between p-3 rounded-xl border shadow-sm ${
+                    isFailed ? 'bg-red-50 border-red-200 text-red-700' : 
+                    isResolved ? 'bg-emerald-50 border-emerald-200 text-emerald-700' :
+                    (STATUS_COLOR[displayStatus?.toLowerCase()] || 'bg-gray-100 border-gray-200')
+                }`}>
+                  <span className="text-sm font-bold uppercase">
+                    {isFailed ? "FAILED" : isResolved ? "RESOLVED" : (STATUS_MAP[displayStatus?.toLowerCase()] || displayStatus)}
+                  </span>
+                  {isFailed ? <XCircle size={14} className="opacity-60" /> : <CheckCircle2 size={14} className="opacity-60" />}
                 </div>
                 <div className={`flex items-center justify-between p-3 rounded-xl border shadow-sm ${PRIORITY_COLOR[displayPriority?.toLowerCase()] || 'bg-gray-100 border-gray-200'}`}>
                   <span className="text-sm font-bold uppercase">{PRIORITY_MAP[displayPriority?.toLowerCase()] || displayPriority} Priority</span>
@@ -199,10 +227,15 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
                   <span className="text-gray-500 flex items-center gap-2"><Clock size={14}/> Created</span>
                   <span className="font-semibold text-gray-800 text-[12px]">{formatTimestamp(ticket.created_at)}</span>
                 </div>
-                {(isResolved || isClosed) && (
+                {isFinalized && (
                   <div className="flex justify-between items-center pt-2 border-t border-gray-100">
-                    <span className="text-emerald-600 flex items-center gap-2 font-bold"><CalendarCheck size={14}/> Resolved</span>
-                    <span className="font-black text-emerald-700 text-[12px]">{formatTimestamp(ticket.updated_at)}</span>
+                    <span className={`${isFailed ? 'text-red-600' : 'text-emerald-600'} flex items-center gap-2 font-bold`}>
+                      {isFailed ? <XCircle size={14}/> : <CalendarCheck size={14}/>} 
+                      {isFailed ? "Failed At" : "Finalized At"}
+                    </span>
+                    <span className={`font-black ${isFailed ? 'text-red-700' : 'text-emerald-700'} text-[12px]`}>
+                      {formatTimestamp(ticket.updated_at)}
+                    </span>
                   </div>
                 )}
               </div>
@@ -214,7 +247,7 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
             <div className="p-4 border-b flex items-center gap-2 text-gray-500 font-semibold text-sm bg-gray-50/30">
               <MessageSquare size={16} /> Conversation Activity
             </div>
-            <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50/10 text-left">
+            <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50/10">
               {loadingMessages ? (
                 <div className="flex flex-col items-center justify-center py-10 text-gray-400 space-y-2">
                   <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
@@ -243,7 +276,7 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
             </div>
 
             {/* MESSAGE INPUT */}
-            {!isClosed && (
+            {!isFinalized && (
               <div className="p-4 bg-white border-t">
                 <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-2xl p-2 focus-within:ring-2 focus-within:ring-blue-500 focus-within:bg-white transition-all shadow-inner">
                   <input
@@ -262,9 +295,9 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
                 </div>
               </div>
             )}
-            {isClosed && (
+            {isFinalized && (
               <div className="p-4 bg-gray-100 border-t text-center text-xs font-bold text-gray-400 uppercase tracking-widest">
-                This ticket is closed. Conversations are archived.
+                This ticket is finalized. Conversations are archived.
               </div>
             )}
           </div>

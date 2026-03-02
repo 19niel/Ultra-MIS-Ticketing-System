@@ -95,6 +95,7 @@ export const getMyTickets = async (req, res) => {
     res.status(500).json({ message: "Failed to fetch tickets" });
   }
 };
+
 export const empcreateTicket = async (req, res) => {
   try {
     const io = req.app.get("io");
@@ -157,8 +158,6 @@ export const empcreateTicket = async (req, res) => {
   }
 };
 
-
-// empTicketController.js
 export const getEmployeeDashboardStats = async (req, res) => {
   try {
     const { emp_id } = req.params;

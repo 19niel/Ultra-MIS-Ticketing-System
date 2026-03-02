@@ -2,10 +2,10 @@ import { useState, useEffect } from "react";
 import { 
   Search, Eye, Calendar, User, Tag, Filter, XCircle, 
   ChevronLeft, ChevronRight, Building2, MapPin, CheckCircle2,
-  Trash2 // Added Trash2 icon
+  Trash2, Clock // Added Clock icon
 } from "lucide-react";
 import ViewTicket from "./forms/ViewTicket";
-import DeleteTicketForm from "./forms/DeleteTicket"; // Added Delete Form
+import DeleteTicketForm from "./forms/DeleteTicket";
 import { STATUS_MAP, PRIORITY_MAP, STATUS_COLOR, PRIORITY_COLOR } from "../../../mapping/ticketMapping";
 import { DEPARTMENT_MAP, BRANCH_MAP } from "../../../mapping/userDetailsMapping"; 
 import { socket } from "../../../socket";
@@ -18,7 +18,6 @@ export default function Tickets() {
   const [dateFilter, setDateFilter] = useState("all");
   const [selectedTicket, setSelectedTicket] = useState(null);
   
-  // States for Deletion
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [ticketToDelete, setTicketToDelete] = useState(null);
 
@@ -71,7 +70,6 @@ export default function Tickets() {
       ));
     });
 
-    // Added socket listener for deletion to keep UI in sync across clients
     socket.on("ticket:deleted", (deletedId) => {
       setTickets((prev) => prev.filter((t) => t.ticket_id !== deletedId));
     });
@@ -84,21 +82,22 @@ export default function Tickets() {
     };
   }, [page, search, statusFilter, priorityFilter, dateFilter]);
 
-  const clearFilters = () => {
-    setSearch("");
-    setStatusFilter("all");
-    setPriorityFilter("all");
-    setDateFilter("all");
-    setPage(1);
-  };
-
-  const formatDate = (dateString) => {
-    if (!dateString) return null;
-    return new Date(dateString).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  // NEW: Updated formatter to include Time
+  const formatDateTime = (dateString) => {
+    if (!dateString) return "N/A";
+    const date = new Date(dateString);
+    return date.toLocaleString("en-US", { 
+      month: "short", 
+      day: "numeric", 
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true
+    });
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-6 lg:p-10 space-y-8 bg-gray-50/50 min-h-screen">
+    <div className="max-w-6xl mx-auto p-6 lg:p-10 space-y-8 bg-gray-50/50 min-h-screen text-left">
       <div className="space-y-6">
         <div>
           <h1 className="text-2xl font-black text-gray-800 tracking-tight">Support Tickets</h1>
@@ -150,36 +149,19 @@ export default function Tickets() {
             <span className="flex h-2 w-2 rounded-full bg-blue-500 animate-pulse"></span>
             {tickets.length > 0 ? (
               <>
-                Showing <span className="font-bold text-gray-800">
-                  {(page - 1) * 10 + 1}
-                </span> to <span className="font-bold text-gray-800">
-                  {Math.min(page * 10, totalStats.totalTickets)}
-                </span> of{" "}
-                <span className="font-bold text-gray-800">{totalStats.totalTickets}</span> results
+                Showing <span className="font-bold text-gray-800">{(page - 1) * 10 + 1}</span> to <span className="font-bold text-gray-800">{Math.min(page * 10, totalStats.totalTickets)}</span> of <span className="font-bold text-gray-800">{totalStats.totalTickets}</span> results
               </>
-            ) : (
-              "No results to show"
-            )}
+            ) : "No results to show"}
           </div>
 
           <div className="flex items-center bg-gray-50 p-1 rounded-xl border border-gray-100">
-            <button 
-              onClick={() => setPage((p) => Math.max(1, p - 1))} 
-              disabled={page === 1} 
-              className="px-4 py-2 text-sm font-bold text-gray-600 rounded-lg hover:bg-white disabled:opacity-30 transition-colors"
-            >
+            <button onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page === 1} className="px-4 py-2 text-sm font-bold text-gray-600 rounded-lg hover:bg-white disabled:opacity-30 transition-colors">
               <ChevronLeft size={16} className="inline mr-1" /> Prev
             </button>
-            
             <div className="px-4 text-sm font-bold border-x border-gray-200">
               <span className="text-blue-600">{page}</span> / {totalStats.totalPages}
             </div>
-            
-            <button 
-              onClick={() => setPage((p) => Math.min(totalStats.totalPages, p + 1))} 
-              disabled={page === totalStats.totalPages} 
-              className="px-4 py-2 text-sm font-bold text-gray-600 rounded-lg hover:bg-white disabled:opacity-30 transition-colors"
-            >
+            <button onClick={() => setPage((p) => Math.min(totalStats.totalPages, p + 1))} disabled={page === totalStats.totalPages} className="px-4 py-2 text-sm font-bold text-gray-600 rounded-lg hover:bg-white disabled:opacity-30 transition-colors">
               Next <ChevronRight size={16} className="inline ml-1" />
             </button>
           </div>
@@ -196,29 +178,21 @@ export default function Tickets() {
               <div className="p-5">
                 <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6">
                   <div className="flex-1 space-y-4">
-                    
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-gray-100 text-gray-400 border border-gray-200 font-mono flex-shrink-0">
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-gray-100 text-gray-400 border border-gray-200 font-mono">
                         {ticket.ticket_number}
                       </span>
-                      
                       <h3 className="text-lg font-bold text-gray-800 group-hover:text-blue-600 transition-colors capitalize">
                         {ticket.subject}
                       </h3>
-
                       <div className="flex items-center gap-2">
                         <div className="flex items-center gap-1 px-2 py-0.5 bg-slate-100/50 rounded border border-slate-200/60">
                           <Building2 size={12} className="text-slate-400" />
-                          <span className="text-[10px] font-bold text-slate-500 uppercase">
-                            {DEPARTMENT_MAP[ticket.department_id] || "Unknown"}
-                          </span>
+                          <span className="text-[10px] font-bold text-slate-500 uppercase">{DEPARTMENT_MAP[ticket.department_id] || "Unknown"}</span>
                         </div>
-                        
                         <div className="flex items-center gap-1 px-2 py-0.5 bg-slate-100/50 rounded border border-slate-200/60">
                           <MapPin size={12} className="text-slate-400" />
-                          <span className="text-[10px] font-bold text-slate-500 uppercase">
-                            {BRANCH_MAP[ticket.branch_id] || "Unknown"}
-                          </span>
+                          <span className="text-[10px] font-bold text-slate-500 uppercase">{BRANCH_MAP[ticket.branch_id] || "Unknown"}</span>
                         </div>
                       </div>
                     </div>
@@ -234,14 +208,17 @@ export default function Tickets() {
                         <Tag size={14} />
                         <span className="text-gray-500">{ticket.category}</span>
                       </div>
+                      {/* UPDATED: Added Clock and Date with Time */}
                       <div className="flex items-center gap-1.5 text-gray-400">
-                        <Calendar size={14} />
-                        <span className="text-gray-500">{formatDate(ticket.created_at)}</span>
+                        <Clock size={14} />
+                        <span className="text-gray-500 font-medium">
+                          {formatDateTime(ticket.created_at)}
+                        </span>
                       </div>
                     </div>
                   </div>
 
-                  {/* RIGHT SIDE: STATUS & ACTIONS */}
+                  {/* RIGHT SIDE */}
                   <div className="flex items-center gap-4">
                     <div className="flex flex-col items-end gap-2">
                       <div className="flex items-center gap-2">
@@ -260,21 +237,11 @@ export default function Tickets() {
                     </div>
 
                     <div className="flex items-center gap-2">
-                      {/* View Button */}
                       <button onClick={() => setSelectedTicket(ticket)} className="flex items-center gap-2 p-2.5 rounded-xl bg-gray-50 text-gray-400 hover:bg-blue-600 hover:text-white transition-all border border-gray-100 shadow-sm">
                         <Eye size={20} />
                         <span className="hidden sm:inline text-sm font-bold">View</span>
                       </button>
-
-                      {/* Delete Button - New */}
-                      <button 
-                        onClick={() => {
-                          setTicketToDelete(ticket);
-                          setShowDeleteModal(true);
-                        }} 
-                        className="p-2.5 rounded-xl bg-gray-50 text-gray-400 hover:bg-red-600 hover:text-white transition-all border border-gray-100 shadow-sm"
-                        title="Delete Ticket"
-                      >
+                      <button onClick={() => { setTicketToDelete(ticket); setShowDeleteModal(true); }} className="p-2.5 rounded-xl bg-gray-50 text-gray-400 hover:bg-red-600 hover:text-white transition-all border border-gray-100 shadow-sm" title="Delete Ticket">
                         <Trash2 size={20} />
                       </button>
                     </div>
@@ -286,16 +253,12 @@ export default function Tickets() {
         })}
       </div>
 
-      {/* MODALS */}
       {selectedTicket && <ViewTicket ticket={selectedTicket} onClose={() => setSelectedTicket(null)} />}
       
       <DeleteTicketForm
         isOpen={showDeleteModal}
         ticket={ticketToDelete}
-        onClose={() => {
-          setShowDeleteModal(false);
-          setTicketToDelete(null);
-        }}
+        onClose={() => { setShowDeleteModal(false); setTicketToDelete(null); }}
         onDeleted={fetchTickets}
       />
     </div>

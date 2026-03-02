@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { 
   Search, Eye, Calendar, User, Tag, Filter, XCircle, 
-  ChevronLeft, ChevronRight, Building2, MapPin, CheckCircle2 
+  ChevronLeft, ChevronRight, Building2, MapPin, CheckCircle2,
+  Clock // Added Clock icon
 } from "lucide-react";
 import ViewTicket from "./forms/ViewTicket";
 import { STATUS_MAP, PRIORITY_MAP, STATUS_COLOR, PRIORITY_COLOR } from "../../../mapping/ticketMapping";
@@ -25,7 +26,7 @@ export default function Tickets() {
       const userData = JSON.parse(userString);
 
       const query = new URLSearchParams({
-        empId: userData.employee_id, // Important: keep the employee filter
+        empId: userData.employee_id,
         page,
         limit: 10,
         search: search.trim(),
@@ -84,9 +85,17 @@ export default function Tickets() {
     setPage(1);
   };
 
-  const formatDate = (dateString) => {
+  // UPDATED: Formatter now includes Time
+  const formatDateTime = (dateString) => {
     if (!dateString) return null;
-    return new Date(dateString).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+    return new Date(dateString).toLocaleString("en-US", { 
+      month: "short", 
+      day: "numeric", 
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true
+    });
   };
 
   return (
@@ -172,7 +181,6 @@ export default function Tickets() {
                 <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6">
                   <div className="flex-1 space-y-4">
                     
-                    {/* ID + TITLE + LOCATION BADGES */}
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                       <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-gray-100 text-gray-400 border border-gray-200 font-mono flex-shrink-0">
                         {ticket.ticket_number}
@@ -211,9 +219,12 @@ export default function Tickets() {
                         <Tag size={14} />
                         <span className="text-gray-500">{ticket.category}</span>
                       </div>
+                      {/* UPDATED: Changed Calendar to Clock and added Time formatting */}
                       <div className="flex items-center gap-1.5 text-gray-400">
-                        <Calendar size={14} />
-                        <span className="text-gray-500">{formatDate(ticket.created_at)}</span>
+                        <Clock size={14} />
+                        <span className="text-gray-500 font-medium">
+                          {formatDateTime(ticket.created_at)}
+                        </span>
                       </div>
                     </div>
                   </div>
