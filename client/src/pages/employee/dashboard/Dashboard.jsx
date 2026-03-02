@@ -177,7 +177,7 @@ const StatCard = ({ icon, title, value, color, description }) => {
     blue: "text-blue-600 bg-blue-50 border-blue-100",
     emerald: "text-emerald-600 bg-emerald-50 border-emerald-100",
     amber: "text-amber-600 bg-amber-50 border-amber-100",
-    indigo: "text-indigo-600 bg-indigo-50 border-indigo-100", // Added Indigo
+    indigo: "text-indigo-600 bg-indigo-50 border-indigo-100",
     red: "text-red-600 bg-red-50 border-red-100",
     slate: "text-slate-600 bg-slate-50 border-slate-100",
   };
@@ -188,12 +188,16 @@ const StatCard = ({ icon, title, value, color, description }) => {
         <div className={`p-4 rounded-2xl ${themes[color]}`}>
           {React.cloneElement(icon, { size: 22 })}
         </div>
-        <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">{description}</span>
+        <span className="text-[9px] font-black text-slate-300 uppercase tracking-widest">
+          {description}
+        </span>
       </div>
-      <h3 className="text-slate-500 font-bold text-xs uppercase tracking-wider mb-2">{title}</h3>
+      <h3 className="text-slate-500 font-bold text-xs uppercase tracking-wider mb-2">
+        {title}
+      </h3>
       <div className="flex items-baseline gap-2">
         <span className="text-5xl font-black text-slate-900">{value}</span>
-        {value > 0 && <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>}
+        {/* Pulse dot removed per your request */}
       </div>
     </div>
   );

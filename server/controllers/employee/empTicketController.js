@@ -162,30 +162,38 @@ export const getEmployeeDashboardStats = async (req, res) => {
   try {
     const { emp_id } = req.params;
     
-    // Using CURDATE() inside the query for accuracy
     const [rows] = await db.execute(`
       SELECT 
-        -- 1. PENDING TODAY: Created TODAY AND not closed (Status 1, 2, or 3)
-        COUNT(CASE WHEN created_by = ? AND DATE(created_at) = CURDATE() AND status_id IN (1, 2, 3) THEN 1 END) as pending_today,
+        -- 1. Changed alias to my_pending to match Frontend state
+        COUNT(CASE WHEN created_by = ? AND DATE(created_at) = CURDATE() AND status_id IN (1, 2, 3) THEN 1 END) as my_pending,
 
-        -- 2. CREATED TODAY: Total tickets submitted today regardless of status
+        -- 2. Total today
         COUNT(CASE WHEN created_by = ? AND DATE(created_at) = CURDATE() THEN 1 END) as my_today,
 
-        -- 3. STILL OPEN: Total accumulation of unresolved work (Backlog - Status 1, 2, 3)
+        -- 3. Still Open (Backlog)
         COUNT(CASE WHEN created_by = ? AND status_id IN (1, 2, 3) THEN 1 END) as still_open,
 
-        -- 4. RESOLVED: Total Closed successfully (Status 4)
-        COUNT(CASE WHEN created_by = ? AND status_id = 4 THEN 1 END) as my_resolved,
+        -- 4. Resolved
+        COUNT(CASE WHEN created_by = ? AND status_id = 4 AND is_resolved = 1 THEN 1 END) as my_resolved,
 
-        -- 5. FAILED: Total Failed (Status 6)
-        COUNT(CASE WHEN created_by = ? AND status_id = 6 THEN 1 END) as my_failed,
+        -- 5. Failed
+        COUNT(CASE WHEN created_by = ? AND status_id = 4 AND is_resolved = 0 THEN 1 END) as my_failed,
 
-        -- 6. TOTAL: Every ticket ever created by this employee
+        -- 6. Total History
         COUNT(CASE WHEN created_by = ? THEN 1 END) as my_total
       FROM tickets
     `, [emp_id, emp_id, emp_id, emp_id, emp_id, emp_id]);
 
-    res.json(rows[0]);
+    // Ensure we return 0s instead of nulls if the query acts up
+    const result = rows[0];
+    res.json({
+      my_pending: result.my_pending || 0,
+      my_today: result.my_today || 0,
+      still_open: result.still_open || 0,
+      my_resolved: result.my_resolved || 0,
+      my_failed: result.my_failed || 0,
+      my_total: result.my_total || 0
+    });
   } catch (error) {
     console.error("Employee Dashboard Stats Error:", error);
     res.status(500).json({ error: error.message });

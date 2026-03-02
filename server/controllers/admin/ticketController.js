@@ -292,8 +292,6 @@ export const deleteTicket = async (req, res) => {
 // 🔔 Socket-Enabled Ticket Creation
 export const getDashboardStats = async (req, res) => {
   try {
-    // We use CURDATE() directly in SQL for cleaner code, 
-    // but keeping your 'today' variable approach works too.
     const today = new Date().toISOString().split('T')[0]; 
 
     const [stats] = await db.execute(`
@@ -304,14 +302,14 @@ export const getDashboardStats = async (req, res) => {
         -- 2. Total Today: Everything created today
         COUNT(CASE WHEN DATE(created_at) = ? THEN 1 END) as total_today,
 
-        -- 3. Still Open: The "Report Style" count (Accumulated backlog 1,2,3)
+        -- 3. Still Open: Accumulated backlog (status 1, 2, or 3)
         COUNT(CASE WHEN status_id IN (1, 2, 3) THEN 1 END) as still_open,
         
-        -- 4. Total Resolved: Status 4 (Closed/Resolved)
-        COUNT(CASE WHEN status_id = 4 THEN 1 END) as total_resolved,
+        -- 4. Total Resolved: Status is Closed (4) AND is_resolved flag is 1
+        COUNT(CASE WHEN status_id = 4 AND is_resolved = 1 THEN 1 END) as total_resolved,
 
-        -- 5. Total Failed: Status 6 (If applicable in your system)
-        COUNT(CASE WHEN status_id = 6 THEN 1 END) as total_failed,
+        -- 5. Total Failed: Status is Closed (4) AND is_resolved flag is 0
+        COUNT(CASE WHEN status_id = 4 AND is_resolved = 0 THEN 1 END) as total_failed,
 
         -- 6. System Total: All time
         COUNT(*) as total_created
@@ -324,7 +322,6 @@ export const getDashboardStats = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
 
 export const getLatestTicketNumber = async (req, res) => {
   try {

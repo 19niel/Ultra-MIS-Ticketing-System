@@ -159,12 +159,22 @@ const MetaChip = ({ icon, label, value, color }) => (
 
 const StatCard = ({ icon, title, value, color, description }) => {
   const colors = {
-    blue: "text-blue-600 bg-blue-50 border-blue-100",
-    emerald: "text-emerald-600 bg-emerald-50 border-emerald-100",
-    amber: "text-amber-600 bg-amber-50 border-amber-100",
-    indigo: "text-indigo-600 bg-indigo-50 border-indigo-100", // Added Indigo
-    red: "text-red-600 bg-red-50 border-red-100",
-    slate: "text-slate-600 bg-slate-50 border-slate-100",
+    blue: "text-blue-600 bg-blue-50 border-blue-100 dot-bg-blue-500",
+    emerald: "text-emerald-600 bg-emerald-50 border-emerald-100 dot-bg-emerald-500",
+    amber: "text-amber-600 bg-amber-50 border-amber-100 dot-bg-amber-500",
+    indigo: "text-indigo-600 bg-indigo-50 border-indigo-100 dot-bg-indigo-500",
+    red: "text-red-600 bg-red-50 border-red-100 dot-bg-red-500", // Red dot for failed
+    slate: "text-slate-600 bg-slate-50 border-slate-100 dot-bg-slate-500",
+  };
+
+  // Map the dot colors to actual Tailwind classes
+  const dotColors = {
+    blue: "bg-blue-500",
+    emerald: "bg-emerald-500",
+    amber: "bg-amber-500",
+    indigo: "bg-indigo-500",
+    red: "bg-red-500",
+    slate: "bg-slate-500",
   };
 
   return (
