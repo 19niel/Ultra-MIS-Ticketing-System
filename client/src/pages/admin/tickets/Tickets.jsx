@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { 
   Search, Eye, Calendar, User, Tag, Filter, XCircle, 
   ChevronLeft, ChevronRight, Building2, MapPin, CheckCircle2,
-  Trash2, Clock // Added Clock icon
+  Trash2, Clock 
 } from "lucide-react";
 import ViewTicket from "./forms/ViewTicket";
 import DeleteTicketForm from "./forms/DeleteTicket";
@@ -51,65 +51,63 @@ export default function Tickets() {
   useEffect(() => { setPage(1); }, [search, statusFilter, priorityFilter, dateFilter]);
 
   useEffect(() => {
-      const delayDebounceFn = setTimeout(() => { fetchTickets(); }, 300);
+    const delayDebounceFn = setTimeout(() => { fetchTickets(); }, 300);
 
-      // 1. New Ticket Added
-      socket.on("ticket:new", (newTicket) => {
-        if (page === 1) setTickets((prev) => [newTicket, ...prev].slice(0, 10));
-      });
+    // 1. New Ticket Added
+    socket.on("ticket:new", (newTicket) => {
+      if (page === 1) setTickets((prev) => [newTicket, ...prev].slice(0, 10));
+    });
 
-      // 2. Status & Resolution Updated (Handles the Icons and Status Badges)
-      socket.on("ticket:statusUpdated", (updatedData) => {
-        setTickets((prev) => prev.map((t) => 
-          t.ticket_id === updatedData.ticket_id 
-            ? { 
-                ...t, 
-                status: updatedData.status, 
-                is_resolved: updatedData.is_resolved, // This updates the checkmark/X icon
-                updated_at: updatedData.updated_at 
-              } 
-            : t
-        ));
-      });
+    // 2. Status & Resolution Updated (REAL-TIME FIX)
+    socket.on("ticket:statusUpdated", (updatedData) => {
+      setTickets((prev) => prev.map((t) => 
+        t.ticket_id === updatedData.ticket_id 
+          ? { 
+              ...t, 
+              status: String(updatedData.status), 
+              is_resolved: updatedData.is_resolved, 
+              updated_at: updatedData.updated_at 
+            } 
+          : t
+      ));
+    });
 
-      // 3. Priority Updated (NEW)
-      socket.on("ticket:priorityUpdated", (updatedData) => {
-        setTickets((prev) => prev.map((t) => 
-          t.ticket_id === updatedData.ticket_id 
-            ? { ...t, priority: updatedData.priority } 
-            : t
-        ));
-      });
+    // 3. Priority Updated
+    socket.on("ticket:priorityUpdated", (updatedData) => {
+      setTickets((prev) => prev.map((t) => 
+        t.ticket_id === updatedData.ticket_id 
+          ? { ...t, priority: updatedData.priority } 
+          : t
+      ));
+    });
 
-      // 4. Assignee Updated (NEW)
-      socket.on("ticket:assigneeUpdated", (updatedData) => {
-        setTickets((prev) => prev.map((t) => 
-          t.ticket_id === parseInt(updatedData.ticket_id) 
-            ? { ...t, assigned_to: updatedData.assigned_to } 
-            : t
-        ));
-      });
+    // 4. Assignee Updated
+    socket.on("ticket:assigneeUpdated", (updatedData) => {
+      setTickets((prev) => prev.map((t) => 
+        t.ticket_id === parseInt(updatedData.ticket_id) 
+          ? { ...t, assigned_to: updatedData.assigned_to } 
+          : t
+      ));
+    });
 
-      // 5. Ticket Deleted
-      socket.on("ticket:deleted", (deletedId) => {
-        setTickets((prev) => prev.filter((t) => t.ticket_id !== deletedId));
-      });
+    // 5. Ticket Deleted
+    socket.on("ticket:deleted", (deletedId) => {
+      setTickets((prev) => prev.filter((t) => t.ticket_id !== deletedId));
+    });
 
-      return () => {
-        clearTimeout(delayDebounceFn);
-        socket.off("ticket:new");
-        socket.off("ticket:statusUpdated");
-        socket.off("ticket:priorityUpdated");
-        socket.off("ticket:assigneeUpdated");
-        socket.off("ticket:deleted");
-      };
-    }, [page, search, statusFilter, priorityFilter, dateFilter]);
+    return () => {
+      clearTimeout(delayDebounceFn);
+      socket.off("ticket:new");
+      socket.off("ticket:statusUpdated");
+      socket.off("ticket:priorityUpdated");
+      socket.off("ticket:assigneeUpdated");
+      socket.off("ticket:deleted");
+    };
+  }, [page, search, statusFilter, priorityFilter, dateFilter]);
 
-  // NEW: Updated formatter to include Time
   const formatDateTime = (dateString) => {
     if (!dateString) return "N/A";
-    const date = new Date(dateString);
-    return date.toLocaleString("en-US", { 
+    return new Date(dateString).toLocaleString("en-US", { 
       month: "short", 
       day: "numeric", 
       year: "numeric",
@@ -194,7 +192,13 @@ export default function Tickets() {
       {/* TICKET LIST */}
       <div className="space-y-4">
         {tickets.map((ticket) => {
-          const isClosed = ticket.status?.toLowerCase() === 'closed' || ticket.status === "4" || ticket.status === "5";
+          const statusLower = ticket.status?.toString().toLowerCase();
+          const isFinalized = 
+            statusLower === 'closed' || 
+            statusLower === 'resolved' || 
+            statusLower === 'failed' || 
+            statusLower === '4' || 
+            statusLower === '5';
 
           return (
             <div key={ticket.ticket_id} className="group bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-blue-200 transition-all duration-200 overflow-hidden">
@@ -231,7 +235,6 @@ export default function Tickets() {
                         <Tag size={14} />
                         <span className="text-gray-500">{ticket.category}</span>
                       </div>
-                      {/* UPDATED: Added Clock and Date with Time */}
                       <div className="flex items-center gap-1.5 text-gray-400">
                         <Clock size={14} />
                         <span className="text-gray-500 font-medium">
@@ -241,17 +244,24 @@ export default function Tickets() {
                     </div>
                   </div>
 
-                  {/* RIGHT SIDE */}
+                  {/* RIGHT SIDE ACTIONS */}
                   <div className="flex items-center gap-4">
                     <div className="flex flex-col items-end gap-2">
                       <div className="flex items-center gap-2">
-                        {isClosed && (
-                           <div className={`p-1 rounded-full border shadow-sm ${Number(ticket.is_resolved) === 1 ? 'bg-green-50 text-green-600 border-green-200' : 'bg-red-50 text-red-600 border-red-200'}`}>
+                          {isFinalized && (
+                            <div 
+                              key={`${ticket.ticket_id}-${ticket.is_resolved}-${ticket.status}`} 
+                              className={`p-1 rounded-full border shadow-sm animate-in fade-in zoom-in duration-500 ${
+                                Number(ticket.is_resolved) === 1 
+                                  ? 'bg-emerald-50 text-emerald-600 border-emerald-200' 
+                                  : 'bg-red-50 text-red-600 border-red-200'
+                              }`}
+                            >
                               {Number(ticket.is_resolved) === 1 ? <CheckCircle2 size={12}/> : <XCircle size={12}/>}
-                           </div>
-                        )}
-                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wide ring-1 ring-inset shadow-sm ${STATUS_COLOR[ticket.status?.toLowerCase()] || "bg-gray-100 text-gray-600 ring-gray-200"}`}>
-                          {STATUS_MAP[ticket.status?.toLowerCase()] || ticket.status}
+                            </div>
+                          )}
+                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wide ring-1 ring-inset shadow-sm ${STATUS_COLOR[statusLower] || "bg-gray-100 text-gray-600 ring-gray-200"}`}>
+                          {STATUS_MAP[statusLower] || ticket.status}
                         </span>
                       </div>
                       <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wide ring-1 ring-inset shadow-sm ${PRIORITY_COLOR[ticket.priority?.toLowerCase()] || "bg-gray-100 text-gray-600 ring-gray-200"}`}>

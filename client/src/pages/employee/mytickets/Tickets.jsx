@@ -64,16 +64,25 @@ export default function Tickets() {
       }
     });
 
-    // 2. Status & Resolution Updated (THE FIX IS HERE)
+    // 2. Status & Resolution Updated (REAL-TIME FIX)
     socket.on("ticket:statusUpdated", (updatedData) => {
       setTickets((prev) => prev.map((t) => 
         t.ticket_id === updatedData.ticket_id 
           ? { 
               ...t, 
-              status: String(updatedData.status), // Ensure string comparison
-              is_resolved: updatedData.is_resolved, 
+              status: String(updatedData.status), 
+              is_resolved: updatedData.is_resolved !== undefined ? Number(updatedData.is_resolved) : t.is_resolved,
               updated_at: updatedData.updated_at 
             } 
+          : t
+      ));
+    });
+
+    // NEW: Listener for the specific resolution update event sent by backend
+    socket.on("ticket:resolvedUpdated", (updatedData) => {
+      setTickets((prev) => prev.map((t) => 
+        t.ticket_id === updatedData.ticket_id 
+          ? { ...t, is_resolved: Number(updatedData.is_resolved) } 
           : t
       ));
     });
@@ -96,6 +105,7 @@ export default function Tickets() {
       clearTimeout(delayDebounceFn);
       socket.off("ticket:new");
       socket.off("ticket:statusUpdated");
+      socket.off("ticket:resolvedUpdated");
       socket.off("ticket:priorityUpdated");
       socket.off("ticket:deleted");
     };
@@ -196,7 +206,6 @@ export default function Tickets() {
       {/* TICKET LIST */}
       <div className="space-y-4">
         {tickets.map((ticket) => {
-          // IMPROVED LOGIC: Check for both ID strings and label strings
           const statusLower = ticket.status?.toString().toLowerCase();
           const isFinalized = 
             statusLower === 'closed' || 
@@ -237,7 +246,6 @@ export default function Tickets() {
                       </div>
                     </div>
                     
-                    {/* META INFO */}
                     <div className="flex flex-wrap items-center gap-y-2 gap-x-6 text-sm text-gray-500">
                       <div className="flex items-center gap-2">
                         <div className="w-6 h-6 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
@@ -263,7 +271,10 @@ export default function Tickets() {
                     <div className="flex flex-col items-end gap-2">
                       <div className="flex items-center gap-2">
                         {isFinalized && (
-                           <div key={`res-${ticket.is_resolved}`} className={`p-1 rounded-full border shadow-sm animate-in zoom-in duration-300 ${Number(ticket.is_resolved) === 1 ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-red-50 text-red-600 border-red-200'}`}>
+                           <div 
+                             key={`emp-res-${ticket.ticket_id}-${ticket.is_resolved}`} 
+                             className={`p-1 rounded-full border shadow-sm animate-in zoom-in duration-300 ${Number(ticket.is_resolved) === 1 ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-red-50 text-red-600 border-red-200'}`}
+                           >
                               {Number(ticket.is_resolved) === 1 ? <CheckCircle2 size={12}/> : <XCircle size={12}/>}
                            </div>
                         )}
@@ -300,4 +311,4 @@ export default function Tickets() {
       {selectedTicket && <ViewTicket ticket={selectedTicket} onClose={() => setSelectedTicket(null)} />}
     </div>
   );
-}
+} 

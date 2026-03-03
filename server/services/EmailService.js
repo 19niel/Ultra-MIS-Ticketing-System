@@ -10,19 +10,28 @@ export const transporter = nodemailer.createTransport({
   },
 });
 
-// One function to rule them all
-export const sendEmail = async ({ to, replyTo, subject, html, attachments }) => {
+export const sendEmail = async ({
+  to,
+  cc,
+  bcc,
+  replyTo,
+  subject,
+  html,
+  attachments,
+}) => {
   try {
     await transporter.sendMail({
-      // We keep UBIX as the official sender so Office365 doesn't block it
-      from: `"UBIX Helpdesk" <${process.env.EMAIL_USER}>`, 
-      to, 
-      replyTo, // <--- This makes the User the "contact" person
+      from: `"UBIX Helpdesk" <${process.env.EMAIL_USER}>`,
+      to,
+      cc,   // ✅ ADD THIS
+      bcc,  // ✅ OPTIONAL BUT RECOMMENDED
+      replyTo,
       subject,
       html,
-      attachments
+      attachments,
     });
-    console.log(`Email sent to: ${to} (Reply-To: ${replyTo})`);
+
+    console.log(`Email sent to: ${to}`);
   } catch (error) {
     console.error("Email error:", error);
   }

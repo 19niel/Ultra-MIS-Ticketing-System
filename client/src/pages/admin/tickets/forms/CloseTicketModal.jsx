@@ -1,13 +1,23 @@
 import React, { useState } from "react";
-import { X, CheckCircle2, XCircle, HelpCircle } from "lucide-react";
+import { X, CheckCircle2, XCircle, HelpCircle, MessageSquare } from "lucide-react";
 
 export default function CloseTicketModal({ isOpen, onClose, onConfirm, ticketNumber, ticketSubject }) {
-  const [selectedResolution, setSelectedResolution] = useState(null); // null, 1 (Resolved), or 0 (Failed)
+  const [selectedResolution, setSelectedResolution] = useState(null); 
+  const [remarks, setRemarks] = useState(""); // State for remarks
 
   if (!isOpen) return null;
 
+  // Validation: Must have a resolution AND text in remarks
+  const canSubmit = selectedResolution !== null && remarks.trim().length > 0;
+
+  const handleConfirm = () => {
+    if (canSubmit) {
+      onConfirm(selectedResolution, remarks); // Pass both values back
+    }
+  };
+
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-gray-900/40 backdrop-blur-sm animate-in fade-in duration-200 text-left">
       <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 border border-gray-100 animate-in zoom-in-95 duration-200">
         
         {/* Header */}
@@ -52,6 +62,19 @@ export default function CloseTicketModal({ isOpen, onClose, onConfirm, ticketNum
           </button>
         </div>
 
+        {/* Remarks Textbox */}
+        <div className="mt-6 space-y-2">
+          <label className="text-xs font-black uppercase tracking-widest text-gray-400 flex items-center gap-2">
+            <MessageSquare size={14} /> Closing Remarks
+          </label>
+          <textarea
+            value={remarks}
+            onChange={(e) => setRemarks(e.target.value)}
+            placeholder="Provide details on the resolution or reason for failure..."
+            className="w-full min-h-[100px] p-4 bg-gray-50 border border-gray-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm resize-none"
+          />
+        </div>
+
         {/* Action Buttons */}
         <div className="mt-8 flex gap-3">
           <button 
@@ -61,9 +84,9 @@ export default function CloseTicketModal({ isOpen, onClose, onConfirm, ticketNum
             Cancel
           </button>
           <button 
-            disabled={selectedResolution === null}
-            onClick={() => onConfirm(selectedResolution)}
-            className="flex-[2] bg-blue-600 text-white px-4 py-3 rounded-xl font-bold shadow-lg shadow-blue-200 disabled:opacity-30 disabled:shadow-none transition-all active:scale-95"
+            disabled={!canSubmit}
+            onClick={handleConfirm}
+            className="flex-[2] bg-blue-600 text-white px-4 py-3 rounded-xl font-bold shadow-lg shadow-blue-200 disabled:opacity-30 disabled:grayscale disabled:shadow-none transition-all active:scale-95"
           >
             Submit & Close
           </button>

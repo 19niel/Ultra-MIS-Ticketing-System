@@ -52,6 +52,7 @@ export const getMyTickets = async (req, res) => {
       t.is_resolved,
       t.department_id,
       t.branch_id,
+      t.remarks,
       CONCAT(creator.first_name, ' ', creator.last_name) AS created_by,
       
       /* ADD THIS LINE TO GET THE ASSIGNEE NAME */
@@ -60,7 +61,8 @@ export const getMyTickets = async (req, res) => {
       s.status_name AS status, 
       p.priority_name AS priority,
       c.category_name AS category,
-      t.created_at, 
+      t.created_at,
+      t.closed_at, 
       t.updated_at
     FROM tickets t
     LEFT JOIN users creator ON t.created_by = creator.employee_id

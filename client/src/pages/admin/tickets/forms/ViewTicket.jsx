@@ -21,6 +21,7 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
   const [displayPriority, setDisplayPriority] = useState(ticket.priority);
   const [displayAssignee, setDisplayAssignee] = useState(ticket.assigned_to);
   const [isResolved, setIsResolved] = useState(ticket.is_resolved);
+  const [displayRemarks, setDisplayRemarks] = useState(ticket.remarks);
   const [displayClosedAt, setDisplayClosedAt] = useState(ticket.closed_at); // NEW STATE
   const [conversations, setConversations] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(true);
@@ -126,7 +127,8 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
     setDisplayPriority(ticket.priority);
     setDisplayAssignee(ticket.assigned_to);
     setIsResolved(ticket.is_resolved);
-    setDisplayClosedAt(ticket.closed_at); // SYNC INITIAL DATA
+    setDisplayClosedAt(ticket.closed_at);
+    setDisplayRemarks(ticket.remarks); // Sync initial remarks
     fetchMessages();
   }, [ticket, fetchMessages]);
 
@@ -151,25 +153,31 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
     } catch (err) { toast.error(`Update failed`); }
   };
 
-  const handleConfirmClose = async (resolutionValue) => {
-    try {
-      const res = await fetch(`${BASE_URL}/close/${ticket.ticket_id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ is_resolved: resolutionValue }),
-      });
-      
-      const responseData = await res.json();
-      if (!res.ok) throw new Error();
-      
-      setIsResolved(resolutionValue);
-      setDisplayStatus("Closed");
-      setDisplayClosedAt(responseData.closed_at || new Date().toISOString()); // UPDATE DATE IMMEDIATELY
-      setIsAuthorized(false); 
-      setIsCloseModalOpen(false);
-      toast.success("Ticket closed successfully");
-    } catch (err) { toast.error("Failed to close ticket"); }
-  };
+const handleConfirmClose = async (resolutionValue, remarksValue) => { // Accept remarksValue
+  try {
+    const res = await fetch(`${BASE_URL}/close/${ticket.ticket_id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ 
+        is_resolved: resolutionValue, 
+        remarks: remarksValue // PASS REMARKS TO BACKEND
+      }),
+    });
+    
+    const responseData = await res.json();
+    if (!res.ok) throw new Error();
+    
+    setIsResolved(resolutionValue);
+    setDisplayStatus("Closed");
+    setDisplayRemarks(remarksValue); // Update UI state
+    setDisplayClosedAt(responseData.closed_at || new Date().toISOString());
+    setIsAuthorized(false); 
+    setIsCloseModalOpen(false);
+    toast.success("Ticket closed successfully");
+  } catch (err) { 
+    toast.error("Failed to close ticket"); 
+  }
+};
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !currentUser) return;
@@ -344,18 +352,29 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
 
               {/* TIMELINE SECTION FOR CLOSED TICKETS */}
               {isClosed && (
-                <div className="pt-2 border-t border-dashed border-gray-300">
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-gray-500 flex items-center gap-2">
-                      {Number(isResolved) === 1 ? <CheckCircle2 size={14} className="text-green-600"/> : <XCircle size={14} className="text-red-600"/>} 
-                      Closed
-                    </span>
-                    <span className={`font-black ${Number(isResolved) === 1 ? 'text-green-600' : 'text-red-600'}`}>
-                      {formatTimestamp(displayClosedAt)}
-                    </span>
-                  </div>
+              <div className="pt-4 border-t border-dashed border-gray-300 space-y-4">
+                {/* Status Row */}
+                <div className="flex justify-between items-center text-sm">
+                  <span className="text-gray-500 flex items-center gap-2">
+                    {Number(isResolved) === 1 ? <CheckCircle2 size={14} className="text-green-600"/> : <XCircle size={14} className="text-red-600"/>} 
+                    Closed
+                  </span>
+                  <span className={`font-black ${Number(isResolved) === 1 ? 'text-green-600' : 'text-red-600'}`}>
+                    {formatTimestamp(displayClosedAt)}
+                  </span>
                 </div>
-              )}
+
+                {/* REMARKS DISPLAY BOX */}
+                <div className={`p-4 rounded-2xl border ${Number(isResolved) === 1 ? 'bg-green-50/50 border-green-100' : 'bg-red-50/50 border-red-100'}`}>
+                  <label className={`text-[10px] font-bold uppercase tracking-widest mb-2 block ${Number(isResolved) === 1 ? 'text-green-600' : 'text-red-600'}`}>
+                    Closing Remarks
+                  </label>
+                  <p className="text-sm text-gray-700 leading-relaxed italic font-medium">
+                    "{displayRemarks || "No remarks provided."}"
+                  </p>
+                </div>
+              </div>
+            )}
             </section>
           </div>
 
