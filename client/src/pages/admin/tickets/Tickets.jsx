@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { 
   Search, Eye, Calendar, User, Tag, Filter, XCircle, 
   ChevronLeft, ChevronRight, Building2, MapPin, CheckCircle2,
@@ -9,6 +9,7 @@ import DeleteTicketForm from "./forms/DeleteTicket";
 import { STATUS_MAP, PRIORITY_MAP, STATUS_COLOR, PRIORITY_COLOR } from "../../../mapping/ticketMapping";
 import { DEPARTMENT_MAP, BRANCH_MAP } from "../../../mapping/userDetailsMapping"; 
 import { socket } from "../../../socket";
+import { toast } from "sonner"; // Assuming you use sonner for notifications
 
 export default function Tickets() {
   const [tickets, setTickets] = useState([]);
@@ -24,7 +25,8 @@ export default function Tickets() {
   const [page, setPage] = useState(1);
   const [totalStats, setTotalStats] = useState({ totalPages: 1, totalTickets: 0 });
 
-  const fetchTickets = async () => {
+  // 1. Wrap fetchTickets in useCallback to allow it to be used safely inside useEffect
+  const fetchTickets = useCallback(async () => {
     try {
       const query = new URLSearchParams({
         page,
@@ -46,20 +48,29 @@ export default function Tickets() {
     } catch (err) {
       console.error("Failed to fetch tickets", err);
     }
-  };
+  }, [page, search, statusFilter, priorityFilter, dateFilter]);
 
-  useEffect(() => { setPage(1); }, [search, statusFilter, priorityFilter, dateFilter]);
+  // Reset page to 1 when filters change
+  useEffect(() => { 
+    setPage(1); 
+  }, [search, statusFilter, priorityFilter, dateFilter]);
 
+  // 2. Real-time Socket Handlers
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => { fetchTickets(); }, 300);
 
-    // 1. New Ticket Added
-    socket.on("ticket:new", (newTicket) => {
-      if (page === 1) setTickets((prev) => [newTicket, ...prev].slice(0, 10));
-    });
+    // Refresh list for structural changes (New/Delete)
+    const handleNewTicket = (newTicket) => {
+      toast.info(`New Ticket Received: ${newTicket.ticket_number}`);
+      fetchTickets(); 
+    };
 
-    // 2. Status & Resolution Updated (REAL-TIME FIX)
-    socket.on("ticket:statusUpdated", (updatedData) => {
+    const handleDeletedTicket = () => {
+      fetchTickets();
+    };
+
+    // Update specific items for field changes
+    const handleStatusUpdate = (updatedData) => {
       setTickets((prev) => prev.map((t) => 
         t.ticket_id === updatedData.ticket_id 
           ? { 
@@ -70,40 +81,39 @@ export default function Tickets() {
             } 
           : t
       ));
-    });
+    };
 
-    // 3. Priority Updated
-    socket.on("ticket:priorityUpdated", (updatedData) => {
+    const handlePriorityUpdate = (updatedData) => {
       setTickets((prev) => prev.map((t) => 
         t.ticket_id === updatedData.ticket_id 
           ? { ...t, priority: updatedData.priority } 
           : t
       ));
-    });
+    };
 
-    // 4. Assignee Updated
-    socket.on("ticket:assigneeUpdated", (updatedData) => {
+    const handleAssigneeUpdate = (updatedData) => {
       setTickets((prev) => prev.map((t) => 
         t.ticket_id === parseInt(updatedData.ticket_id) 
           ? { ...t, assigned_to: updatedData.assigned_to } 
           : t
       ));
-    });
+    };
 
-    // 5. Ticket Deleted
-    socket.on("ticket:deleted", (deletedId) => {
-      setTickets((prev) => prev.filter((t) => t.ticket_id !== deletedId));
-    });
+    socket.on("ticket:new", handleNewTicket);
+    socket.on("ticket:deleted", handleDeletedTicket);
+    socket.on("ticket:statusUpdated", handleStatusUpdate);
+    socket.on("ticket:priorityUpdated", handlePriorityUpdate);
+    socket.on("ticket:assigneeUpdated", handleAssigneeUpdate);
 
     return () => {
       clearTimeout(delayDebounceFn);
-      socket.off("ticket:new");
-      socket.off("ticket:statusUpdated");
-      socket.off("ticket:priorityUpdated");
-      socket.off("ticket:assigneeUpdated");
-      socket.off("ticket:deleted");
+      socket.off("ticket:new", handleNewTicket);
+      socket.off("ticket:deleted", handleDeletedTicket);
+      socket.off("ticket:statusUpdated", handleStatusUpdate);
+      socket.off("ticket:priorityUpdated", handlePriorityUpdate);
+      socket.off("ticket:assigneeUpdated", handleAssigneeUpdate);
     };
-  }, [page, search, statusFilter, priorityFilter, dateFilter]);
+  }, [fetchTickets]); // Dependent on the memoized fetch function
 
   const formatDateTime = (dateString) => {
     if (!dateString) return "N/A";
@@ -244,22 +254,21 @@ export default function Tickets() {
                     </div>
                   </div>
 
-                  {/* RIGHT SIDE ACTIONS */}
                   <div className="flex items-center gap-4">
                     <div className="flex flex-col items-end gap-2">
                       <div className="flex items-center gap-2">
-                          {isFinalized && (
-                            <div 
-                              key={`${ticket.ticket_id}-${ticket.is_resolved}-${ticket.status}`} 
-                              className={`p-1 rounded-full border shadow-sm animate-in fade-in zoom-in duration-500 ${
-                                Number(ticket.is_resolved) === 1 
-                                  ? 'bg-emerald-50 text-emerald-600 border-emerald-200' 
-                                  : 'bg-red-50 text-red-600 border-red-200'
-                              }`}
-                            >
-                              {Number(ticket.is_resolved) === 1 ? <CheckCircle2 size={12}/> : <XCircle size={12}/>}
-                            </div>
-                          )}
+                        {isFinalized && (
+                          <div 
+                            key={`${ticket.ticket_id}-${ticket.is_resolved}-${ticket.status}`} 
+                            className={`p-1 rounded-full border shadow-sm animate-in fade-in zoom-in duration-500 ${
+                              Number(ticket.is_resolved) === 1 
+                                ? 'bg-emerald-50 text-emerald-600 border-emerald-200' 
+                                : 'bg-red-50 text-red-600 border-red-200'
+                            }`}
+                          >
+                            {Number(ticket.is_resolved) === 1 ? <CheckCircle2 size={12}/> : <XCircle size={12}/>}
+                          </div>
+                        )}
                         <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wide ring-1 ring-inset shadow-sm ${STATUS_COLOR[statusLower] || "bg-gray-100 text-gray-600 ring-gray-200"}`}>
                           {STATUS_MAP[statusLower] || ticket.status}
                         </span>

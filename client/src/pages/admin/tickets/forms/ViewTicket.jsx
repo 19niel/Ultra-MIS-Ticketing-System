@@ -10,19 +10,24 @@ import { socket } from "../../../../socket";
 import AdminEdit from "./AdminEdit";
 import CloseTicketModal from "./CloseTicketModal";
 
-const STATUS_ID_TO_NAME = { 1: "Open", 2: "In Progress", 3: "On Hold"};
+const STATUS_ID_TO_NAME = { 1: "Open", 2: "In Progress", 3: "On Hold", 4: "Closed", 5: "Resolved" };
 const PRIORITY_ID_TO_NAME = { 1: "Low", 2: "Medium", 3: "High", 4: "Urgent" }; 
 const BASE_URL = "http://localhost:3000/api/tickets";
 
 export default function ViewTicket({ ticket, onClose, userRole }) {
   const [currentUser, setCurrentUser] = useState(null);
   const [newMessage, setNewMessage] = useState("");
+  
+  // --- Real-time Display States ---
   const [displayStatus, setDisplayStatus] = useState(ticket.status);
   const [displayPriority, setDisplayPriority] = useState(ticket.priority);
   const [displayAssignee, setDisplayAssignee] = useState(ticket.assigned_to);
   const [isResolved, setIsResolved] = useState(ticket.is_resolved);
   const [displayRemarks, setDisplayRemarks] = useState(ticket.remarks);
-  const [displayClosedAt, setDisplayClosedAt] = useState(ticket.closed_at); // NEW STATE
+  const [displayClosedAt, setDisplayClosedAt] = useState(ticket.closed_at);
+  const [displaySubject, setDisplaySubject] = useState(ticket.subject);
+  const [displayDescription, setDisplayDescription] = useState(ticket.description);
+
   const [conversations, setConversations] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(true);
   const [supportUsers, setSupportUsers] = useState([]);
@@ -44,10 +49,8 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
   const messagesEndRef = useRef(null);
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
 
-  // Logic: Closed only if DB says closed AND admin hasn't bypassed it
   const isClosed = (displayStatus?.toLowerCase() === 'closed' || displayStatus === "4" || displayStatus === "5") && !isAuthorized;
 
-  // HELPER: Logic to handle clicking fields when closed
   const attemptEdit = (field) => {
     if (isClosed) {
       setPendingAction(() => () => {
@@ -63,38 +66,60 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
     }
   };
 
-  // SOCKET LISTENERS
+  // --- SOCKET LISTENERS ---
   useEffect(() => {
     if (!socket) return;
+    const ticketId = Number(ticket.ticket_id);
+
     const handleIncomingMessage = (data) => {
-      if (data.ticket_id == ticket.ticket_id) {
+      if (Number(data.ticket_id) === ticketId) {
         setConversations((prev) => (prev.some(m => m.message_id === data.message_id) ? prev : [...prev, data]));
       }
     };
     
     const handleStatusUpdate = (data) => { 
-      if (data.ticket_id == ticket.ticket_id) {
-        setDisplayStatus(STATUS_ID_TO_NAME[data.status] || data.status);
-        if (data.closed_at) setDisplayClosedAt(data.closed_at); // SYNC DATE VIA SOCKET
+      if (Number(data.ticket_id) === ticketId) {
+        // Map ID to Name if backend sends ID, otherwise use string
+        const statusName = STATUS_ID_TO_NAME[data.status] || data.status;
+        setDisplayStatus(statusName);
+        
+        if (data.is_resolved !== undefined) setIsResolved(data.is_resolved);
+        if (data.remarks !== undefined) setDisplayRemarks(data.remarks);
+        if (data.closed_at) setDisplayClosedAt(data.closed_at);
       }
     };
 
-    const handlePriorityUpdate = (data) => { if (data.ticket_id == ticket.ticket_id) setDisplayPriority(PRIORITY_ID_TO_NAME[data.priority] || data.priority); };
-    const handleAssigneeUpdate = (data) => { if (data.ticket_id == ticket.ticket_id) setDisplayAssignee(data.assigned_to); };
-    const handleResolvedUpdate = (data) => { if (data.ticket_id == ticket.ticket_id) setIsResolved(data.is_resolved); };
+    const handlePriorityUpdate = (data) => { 
+      if (Number(data.ticket_id) === ticketId) {
+        setDisplayPriority(PRIORITY_ID_TO_NAME[data.priority] || data.priority);
+      }
+    };
+
+    const handleAssigneeUpdate = (data) => { 
+      if (Number(data.ticket_id) === ticketId) {
+        setDisplayAssignee(data.assigned_to);
+      }
+    };
+
+    const handleTicketEdit = (data) => {
+      if (Number(data.ticket_id) === ticketId) {
+        if (data.subject) setDisplaySubject(data.subject);
+        if (data.description) setDisplayDescription(data.description);
+      }
+    };
 
     socket.on("ticket:message:new", handleIncomingMessage);
     socket.on("ticket:statusUpdated", handleStatusUpdate);
     socket.on("ticket:priorityUpdated", handlePriorityUpdate);
     socket.on("ticket:assigneeUpdated", handleAssigneeUpdate);
-    socket.on("ticket:resolvedUpdated", handleResolvedUpdate);
+    socket.on("ticket:updated", handleTicketEdit);
 
     return () => {
       socket.off("ticket:message:new", handleIncomingMessage);
       socket.off("ticket:statusUpdated", handleStatusUpdate);
       socket.off("ticket:priorityUpdated", handlePriorityUpdate);
       socket.off("ticket:assigneeUpdated", handleAssigneeUpdate);
-      socket.off("ticket:resolvedUpdated", handleResolvedUpdate);
+      socket.off("ticket:updated", handleTicketEdit);
     };
   }, [ticket.ticket_id]);
 
@@ -117,18 +142,21 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
     try {
       setLoadingMessages(true);
       const res = await fetch(`${BASE_URL}/${ticket.ticket_id}/messages`);
-      setConversations(await res.json());
+      if (res.ok) setConversations(await res.json());
     } catch (err) { console.error(err); } 
     finally { setLoadingMessages(false); }
   }, [ticket.ticket_id]);
 
   useEffect(() => {
+    // Sync all states when the ticket prop changes
     setDisplayStatus(ticket.status);
     setDisplayPriority(ticket.priority);
     setDisplayAssignee(ticket.assigned_to);
     setIsResolved(ticket.is_resolved);
     setDisplayClosedAt(ticket.closed_at);
-    setDisplayRemarks(ticket.remarks); // Sync initial remarks
+    setDisplayRemarks(ticket.remarks);
+    setDisplaySubject(ticket.subject);
+    setDisplayDescription(ticket.description);
     fetchMessages();
   }, [ticket, fetchMessages]);
 
@@ -153,31 +181,32 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
     } catch (err) { toast.error(`Update failed`); }
   };
 
-const handleConfirmClose = async (resolutionValue, remarksValue) => { // Accept remarksValue
-  try {
-    const res = await fetch(`${BASE_URL}/close/${ticket.ticket_id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ 
-        is_resolved: resolutionValue, 
-        remarks: remarksValue // PASS REMARKS TO BACKEND
-      }),
-    });
-    
-    const responseData = await res.json();
-    if (!res.ok) throw new Error();
-    
-    setIsResolved(resolutionValue);
-    setDisplayStatus("Closed");
-    setDisplayRemarks(remarksValue); // Update UI state
-    setDisplayClosedAt(responseData.closed_at || new Date().toISOString());
-    setIsAuthorized(false); 
-    setIsCloseModalOpen(false);
-    toast.success("Ticket closed successfully");
-  } catch (err) { 
-    toast.error("Failed to close ticket"); 
-  }
-};
+  const handleConfirmClose = async (resolutionValue, remarksValue) => {
+    try {
+      const res = await fetch(`${BASE_URL}/close/${ticket.ticket_id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          is_resolved: resolutionValue, 
+          remarks: remarksValue 
+        }),
+      });
+      
+      const responseData = await res.json();
+      if (!res.ok) throw new Error();
+      
+      // Local state update (Socket will also broadcast this to others)
+      setIsResolved(resolutionValue);
+      setDisplayStatus("Closed");
+      setDisplayRemarks(remarksValue);
+      setDisplayClosedAt(responseData.closed_at || new Date().toISOString());
+      setIsAuthorized(false); 
+      setIsCloseModalOpen(false);
+      toast.success("Ticket closed successfully");
+    } catch (err) { 
+      toast.error("Failed to close ticket"); 
+    }
+  };
 
   const handleSendMessage = async () => {
     if (!newMessage.trim() || !currentUser) return;
@@ -197,7 +226,6 @@ const handleConfirmClose = async (resolutionValue, remarksValue) => { // Accept 
   return (
     <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-0 sm:p-4 text-left">
       
-      {/* MODALS */}
       <AdminEdit 
         isOpen={isAdminModalOpen} 
         onClose={() => setIsAdminModalOpen(false)} 
@@ -213,7 +241,7 @@ const handleConfirmClose = async (resolutionValue, remarksValue) => { // Accept 
         onClose={() => setIsCloseModalOpen(false)}
         onConfirm={handleConfirmClose}
         ticketNumber={ticket.ticket_number}
-        ticketSubject={ticket.subject}
+        ticketSubject={displaySubject}
       />
 
       <div className="bg-white w-full max-w-6xl h-full sm:h-[85vh] sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
@@ -224,7 +252,7 @@ const handleConfirmClose = async (resolutionValue, remarksValue) => { // Accept 
             <div className="bg-blue-50 text-blue-600 px-3 py-1 rounded-full text-xs font-bold border border-blue-100 uppercase tracking-wider">
               {ticket.ticket_number}
             </div>
-            <h2 className="text-lg font-bold text-gray-800 truncate">{ticket.subject}</h2>
+            <h2 className="text-lg font-bold text-gray-800 truncate">{displaySubject}</h2>
           </div>
           
           <div className="flex items-center gap-3">
@@ -302,7 +330,7 @@ const handleConfirmClose = async (resolutionValue, remarksValue) => { // Accept 
 
             <section className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
               <h4 className="text-gray-400 text-[11px] font-bold uppercase tracking-widest mb-3 flex items-center gap-2"><Info size={14} /> Description</h4>
-              <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap font-medium">{ticket.description}</p>
+              <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap font-medium">{displayDescription}</p>
             </section>
 
             <section className="space-y-3">
@@ -352,8 +380,7 @@ const handleConfirmClose = async (resolutionValue, remarksValue) => { // Accept 
 
               {/* TIMELINE SECTION FOR CLOSED TICKETS */}
               {isClosed && (
-              <div className="pt-4 border-t border-dashed border-gray-300 space-y-4">
-                {/* Status Row */}
+              <div className="pt-4 border-t border-dashed border-gray-300 space-y-4 animate-in fade-in slide-in-from-bottom-2">
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-gray-500 flex items-center gap-2">
                     {Number(isResolved) === 1 ? <CheckCircle2 size={14} className="text-green-600"/> : <XCircle size={14} className="text-red-600"/>} 
@@ -364,7 +391,6 @@ const handleConfirmClose = async (resolutionValue, remarksValue) => { // Accept 
                   </span>
                 </div>
 
-                {/* REMARKS DISPLAY BOX */}
                 <div className={`p-4 rounded-2xl border ${Number(isResolved) === 1 ? 'bg-green-50/50 border-green-100' : 'bg-red-50/50 border-red-100'}`}>
                   <label className={`text-[10px] font-bold uppercase tracking-widest mb-2 block ${Number(isResolved) === 1 ? 'text-green-600' : 'text-red-600'}`}>
                     Closing Remarks
@@ -387,9 +413,9 @@ const handleConfirmClose = async (resolutionValue, remarksValue) => { // Accept 
 
             <div className="flex-1 overflow-y-auto p-6 space-y-6 bg-gray-50/20">
               {loadingMessages ? (
-                <div className="text-center py-10 text-gray-400">Loading Messages...</div>
+                <div className="text-center py-10 text-gray-400 text-sm">Loading Messages...</div>
               ) : conversations.map((msg) => (
-                <div key={msg.message_id || Math.random()} className="flex gap-4">
+                <div key={msg.message_id || Math.random()} className="flex gap-4 animate-in fade-in slide-in-from-bottom-1">
                   <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center text-white font-bold flex-shrink-0 shadow-sm">
                     {msg.first_name?.[0]}{msg.last_name?.[0]}
                   </div>
