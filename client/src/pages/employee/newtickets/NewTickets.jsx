@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { Send, Building2, Tag, Pencil, Hash, User, Calendar } from "lucide-react";
 import { toast } from "sonner";
-
+import { 
+  playNotifTicketSound, 
+} from "../../../utils/playNotification";
 export default function NewTicket() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [latestTicketNumber, setLatestTicketNumber] = useState("TKT-0000000");
@@ -86,6 +88,8 @@ export default function NewTicket() {
       toast.success(`Ticket ${newTicketNumber} created successfully 🎉`);
       setForm({ subject: "", category_id: "", department_id: "", description: "" });
       setLatestTicketNumber(newTicketNumber);
+      playNotifTicketSound();
+
     } catch (err) {
       toast.error(err.message);
     } finally {

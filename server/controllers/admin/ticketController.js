@@ -454,7 +454,7 @@ export const updatePriority = async (req, res) => {
 
 export const closeTicket = async (req, res) => {
   const { ticket_id } = req.params;
-  const { is_resolved, remarks } = req.body; // 1️⃣ Extract remarks from body
+  const { is_resolved, remarks } = req.body; 
   const CLOSED_STATUS_ID = 4;
 
   try {
@@ -464,7 +464,7 @@ export const closeTicket = async (req, res) => {
 
     const now = new Date();
 
-    // 2️⃣ Update ticket status, resolution, AND remarks
+    // 1. Update ticket
     const [updateResult] = await db.query(
       `UPDATE tickets
        SET status_id = ?, 
@@ -480,7 +480,7 @@ export const closeTicket = async (req, res) => {
       return res.status(404).json({ message: "Ticket not found" });
     }
 
-    // 3️⃣ Fetch FULL ticket details (Including remarks now)
+    // 2. Fetch FULL details with BRANCH and CATEGORY
     const [ticketData] = await db.query(
       `
       SELECT
@@ -489,22 +489,20 @@ export const closeTicket = async (req, res) => {
         t.subject,
         t.description,
         t.is_resolved,
-        t.remarks, -- Added this
+        t.remarks,
         t.closed_at,
-        t.created_at,
-        t.updated_at,
         u.email AS reporter_email,
         CONCAT(u.first_name, ' ', u.last_name) AS created_by,
         CONCAT(a.first_name, ' ', a.last_name) AS assigned_to,
         s.status_name AS status,
-        p.priority_name AS priority,
-        c.category_name AS category_name
+        c.category_name AS category, -- Changed alias from category_name to category
+        b.branch_name AS branch      -- Added branch join result
       FROM tickets t
       LEFT JOIN users u ON t.created_by = u.employee_id
       LEFT JOIN users a ON t.assigned_to = a.employee_id
       LEFT JOIN ticket_status s ON t.status_id = s.status_id
-      LEFT JOIN priorities p ON t.priority_id = p.priority_id
       LEFT JOIN categories c ON t.category_id = c.category_id
+      LEFT JOIN branches b ON t.branch_id = b.branch_id -- ADDED THIS JOIN
       WHERE t.ticket_id = ?
       `,
       [ticket_id]
@@ -516,25 +514,25 @@ export const closeTicket = async (req, res) => {
 
     const ticketInfo = ticketData[0];
 
-    // 4️⃣ Emit real-time socket updates
+    // 3. Socket Update
     const io = req.app.get("io");
     if (io) {
       io.emit("ticket:statusUpdated", {
         ticket_id: parseInt(ticket_id),
         status: "Closed",
         is_resolved: parseInt(is_resolved),
-        remarks: remarks, // Push remarks to UI in real-time
+        remarks: remarks,
         closed_at: now
       });
     }
 
-    // 5️⃣ Send Email with Remarks
+    // 4. Send Email
     try {
       await sendEmail({
         to: ticketInfo.reporter_email,
         cc: process.env.ADMIN_EMAILS,
         subject: `[Closed] Ticket #${ticketInfo.ticket_number} - ${ticketInfo.subject}`,
-        html: EmailCloseTicket(ticketInfo) // Remarks is now inside ticketInfo
+        html: EmailCloseTicket(ticketInfo) 
       });
     } catch (emailErr) {
       console.error("Email failed but ticket was closed:", emailErr);

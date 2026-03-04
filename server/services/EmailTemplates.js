@@ -113,16 +113,12 @@ export const EmailCloseTicket = (ticket) => {
             Reference ID: <span style="color: #3b82f6; font-weight: 600;">#${ticket.ticket_number}</span>
           </p>
 
-          <p style="margin: 0; color: #64748b; font-size: 14px;">
-            Description: <span style="color: #3b82f6; font-weight: 600;">#${ticket.description}</span>
-          </p>
-
           <div style="margin: 25px 0; padding: 20px; background-color: ${resolutionBg}; border: 1px solid ${resolutionColor}20; border-radius: 12px;">
             <label style="display:block; font-size:10px; font-weight:800; color:${resolutionColor}; text-transform:uppercase; margin-bottom:8px; letter-spacing: 0.5px;">
               Closing Remarks
             </label>
-            <div style="font-size: 15px; color: #1e293b; line-height: 1.6; font-weight: 500;">
-              ${ticket.remarks || "No additional remarks provided."}
+            <div style="font-size: 15px; color: #1e293b; line-height: 1.6; font-weight: 500; font-style: italic;">
+              "${ticket.remarks || "No additional remarks provided."}"
             </div>
           </div>
 
@@ -130,44 +126,49 @@ export const EmailCloseTicket = (ticket) => {
             <table style="width: 100%; border-collapse: collapse;">
               <tr>
                 <td style="padding-bottom: 20px; width: 50%;">
-                  <label style="display:block; font-size:10px; font-weight:800; color:#94a3b8; text-transform:uppercase; margin-bottom:4px;">Resolution Status:</label>
+                  <label style="display:block; font-size:10px; font-weight:800; color:#94a3b8; text-transform:uppercase; margin-bottom:4px;">Status</label>
                   <span style="font-size:14px; font-weight:800; color:${resolutionColor};">${resolutionText}</span>
                 </td>
                 <td style="padding-bottom: 20px; width: 50%;">
-                  <label style="display:block; font-size:10px; font-weight:800; color:#94a3b8; text-transform:uppercase; margin-bottom:4px;">Closed On:</label>
+                  <label style="display:block; font-size:10px; font-weight:800; color:#94a3b8; text-transform:uppercase; margin-bottom:4px;">Closed On</label>
                   <span style="font-size:14px; font-weight:500;">${closedDate}</span>
                 </td>
               </tr>
 
               <tr>
-                <td style="padding-bottom:20px;">
-                  <label style="display:block; font-size:10px; font-weight:800; color:#94a3b8; text-transform:uppercase; margin-bottom:4px;">Reporter:</label>
+                <td style="padding-bottom: 20px;">
+                  <label style="display:block; font-size:10px; font-weight:800; color:#94a3b8; text-transform:uppercase; margin-bottom:4px;">Reporter</label>
                   <span style="font-size:14px; font-weight:500;">${ticket.created_by}</span>
                 </td>
-                <td style="padding-bottom:20px;">
-                  <label style="display:block; font-size:10px; font-weight:800; color:#94a3b8; text-transform:uppercase; margin-bottom:4px;">Reporter:</label>
-                  <span style="font-size:14px; font-weight:500;">${ticket.created_by}</span>
+                <td style="padding-bottom: 20px;">
+                  <label style="display:block; font-size:10px; font-weight:800; color:#94a3b8; text-transform:uppercase; margin-bottom:4px;">Handled By</label>
+                  <span style="font-size:14px; font-weight:500;">${ticket.assigned_to || "Support Team"}</span>
                 </td>
               </tr>
 
               <tr>
-                td style="padding-bottom:20px;">
-                  <label style="display:block; font-size:10px; font-weight:800; color:#94a3b8; text-transform:uppercase; margin-bottom:4px;">Assigned to: </label>
-                  <span style="font-size:14px; font-weight:500;">${ticket.assigned_to || "Not Assigned"}</span>
+                <td style="padding-bottom: 20px;">
+                  <label style="display:block; font-size:10px; font-weight:800; color:#94a3b8; text-transform:uppercase; margin-bottom:4px;">Category</label>
+                  <span style="font-size:14px; font-weight:500;">${ticket.category || "General Inquiry"}</span>
                 </td>
-                <td style="padding-bottom:20px;">
-                  <label style="display:block; font-size:10px; font-weight:800; color:#94a3b8; text-transform:uppercase; margin-bottom:4px;">Reporter:</label>
-                  <span style="font-size:14px; font-weight:500;">${ticket.created_by}</span>
+                <td style="padding-bottom: 20px;">
+                  <label style="display:block; font-size:10px; font-weight:800; color:#94a3b8; text-transform:uppercase; margin-bottom:4px;">Branch</label>
+                  <span style="font-size:14px; font-weight:500;">${ticket.branch || "Main Office"}</span>
                 </td>
-
               </tr>
             </table>
+          </div>
+
+          <div style="margin-top: 30px; text-align: center;">
+            <a href="http://localhost:5173/user/tickets" style="background-color: #0f172a; color: #ffffff; padding: 12px 25px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 13px; display: inline-block;">
+              View Ticket History
+            </a>
           </div>
 
         </div>
       </div>
       <div style="text-align:center; margin-top:30px;">
-        <p style="font-size:12px; color:#94a3b8; margin:0;">UBIX Helpdesk System • 2026</p>
+        <p style="font-size:12px; color:#94a3b8; margin:0;">UBIX Helpdesk System &bull; 2026</p>
       </div>
     </div>
   </div>
