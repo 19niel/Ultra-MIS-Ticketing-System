@@ -195,8 +195,8 @@ const Reports = () => {
       {/* CHART SECTION */}
       <div className="bg-white p-8 rounded-3xl border border-gray-100 shadow-sm">
         <div className="flex items-center justify-between mb-8">
-          <h2 className="text-xl font-bold text-gray-800">Tickets by Category</h2>
-          <div className="flex items-center gap-2 text-xs font-bold text-gray-400 uppercase tracking-widest">
+          <h2 className="text-xl font-bold text-black-800">Tickets by Category</h2>
+          <div className="flex items-center gap-2 text-xs font-bold text-black-800 uppercase tracking-widest">
             <Filter size={14}/> Live Metrics
           </div>
         </div>
@@ -210,8 +210,8 @@ const Reports = () => {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={data} margin={{ top: 20, right: 30, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12, fontWeight: 600}} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#000000', fontSize: 12, fontWeight: 600}} dy={10} />
+                <YAxis axisLine={false} tickLine={false} tick={{fill: '#000000', fontSize: 12}} />
                 <Tooltip cursor={{fill: '#f8fafc'}} contentStyle={{ borderRadius: '16px', border: 'none', boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)', padding: '12px' }} />
                 <Bar dataKey="total" radius={[6, 6, 0, 0]} barSize={50}>
                   {data.map((entry, index) => (
