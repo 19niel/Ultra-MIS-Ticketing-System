@@ -41,7 +41,7 @@ export default function App() {
         <Route
           path="/admin"
           element={
-            <ProtectedRoute allowedRoles={[1]}>
+            <ProtectedRoute allowedRoles={[1, 2]}>
               <AdminLayout />
             </ProtectedRoute>
           }
@@ -58,17 +58,7 @@ export default function App() {
         </Route>
 
 
-        {/* TECH SUPPORT (role_id = 2) */}
-        <Route
-          path="/techsupport"
-          element={
-            <ProtectedRoute allowedRoles={[2]}>
-              <TechSupportLayout />
-            </ProtectedRoute>
-          }
-        >
-          <Route index element={<TechSupportDashboard />} />
-        </Route>
+
 
 
         {/* EMPLOYEE (role_id = 3) */}

@@ -10,6 +10,7 @@ import { STATUS_MAP, PRIORITY_MAP, STATUS_COLOR, PRIORITY_COLOR } from "../../..
 import { DEPARTMENT_MAP, BRANCH_MAP } from "../../../mapping/userDetailsMapping"; 
 import { socket } from "../../../socket";
 import { toast } from "sonner"; // Assuming you use sonner for notifications
+import { NewTicketTemplate } from "../../../components/toast/TicketToasts";
 
 export default function Tickets() {
   const [tickets, setTickets] = useState([]);
@@ -61,7 +62,10 @@ export default function Tickets() {
 
     // Refresh list for structural changes (New/Delete)
     const handleNewTicket = (newTicket) => {
-      toast.info(`New Ticket Received: ${newTicket.ticket_number}`);
+      toast.info(<NewTicketTemplate ticket={newTicket} />, {
+        duration: 10000,
+        className: "rounded-2xl border-none shadow-lg", // Optional: style the toast container
+      });
       fetchTickets(); 
     };
 

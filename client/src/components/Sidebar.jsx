@@ -93,10 +93,10 @@ export default function Sidebar({ role }) {
 
       {/* Bottom Nav */}
       <div className="p-2 border-t space-y-1">
-        <div className="flex items-center gap-3 p-2 hover:bg-gray-100 rounded cursor-pointer">
+        {/* <div className="flex items-center gap-3 p-2 hover:bg-gray-100 rounded cursor-pointer">
           <Bell className="w-5 h-5" />
           {!isCollapsed && <span>Notifications</span>}
-        </div>
+        </div> */}
 
           <div className="flex items-center gap-3 p-2 hover:bg-gray-100 rounded cursor-pointer">
           <CopyrightIcon className="w-5 h-5" />

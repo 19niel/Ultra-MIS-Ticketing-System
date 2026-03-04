@@ -10,7 +10,8 @@ import { socket } from "../../../../socket";
 import AdminEdit from "./AdminEdit";
 import CloseTicketModal from "./CloseTicketModal";
 
-const STATUS_ID_TO_NAME = { 1: "Open", 2: "In Progress", 3: "On Hold", 4: "Closed", 5: "Resolved" };
+
+const STATUS_ID_TO_NAME = { 1: "Open", 2: "In Progress", 3: "On Hold", 4: "Closed" };
 const PRIORITY_ID_TO_NAME = { 1: "Low", 2: "Medium", 3: "High", 4: "Urgent" }; 
 const BASE_URL = "http://localhost:3000/api/tickets";
 
@@ -23,6 +24,7 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
   const [displayPriority, setDisplayPriority] = useState(ticket.priority);
   const [displayAssignee, setDisplayAssignee] = useState(ticket.assigned_to);
   const [isResolved, setIsResolved] = useState(ticket.is_resolved);
+  const [displayCategory, setDisplayCategory] = useState(ticket.category);
   const [displayRemarks, setDisplayRemarks] = useState(ticket.remarks);
   const [displayClosedAt, setDisplayClosedAt] = useState(ticket.closed_at);
   const [displaySubject, setDisplaySubject] = useState(ticket.subject);
@@ -334,7 +336,14 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
             </section>
 
             <section className="space-y-3">
-              <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest block">Location</label>
+              <label className="text-[11px] font-bold text-gray-400 uppercase tracking-widest block">Details</label>
+
+              <div className="flex items-center gap-3 p-3 bg-white border border-gray-100 rounded-xl">
+                <Tag size={16} className="text-blue-500" />
+                <span className="text-sm font-bold text-gray-700">
+                  {CATEGORY_MAP[displayCategory] || displayCategory || "Others"}
+                </span>
+              </div>
               <div className="flex items-center gap-3 p-3 bg-white border border-gray-100 rounded-xl">
                 <Building2 size={16} className="text-gray-400" />
                 <span className="text-sm font-bold text-gray-700">{DEPARTMENT_MAP[ticket.department_id] || "N/A"}</span>
