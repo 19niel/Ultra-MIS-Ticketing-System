@@ -11,6 +11,7 @@ import { DEPARTMENT_MAP, BRANCH_MAP } from "../../../mapping/userDetailsMapping"
 import { socket } from "../../../socket";
 import { toast } from "sonner"; // Assuming you use sonner for notifications
 import { NewTicketTemplate } from "../../../components/toast/TicketToasts";
+import { playNewTicketSound } from "../../../utils/playNotification";
 
 export default function Tickets() {
   const [tickets, setTickets] = useState([]);
@@ -62,6 +63,8 @@ export default function Tickets() {
 
     // Refresh list for structural changes (New/Delete)
     const handleNewTicket = (newTicket) => {
+
+      playNewTicketSound();
       toast.info(<NewTicketTemplate ticket={newTicket} />, {
         duration: 10000,
         className: "rounded-2xl border-none shadow-lg", // Optional: style the toast container

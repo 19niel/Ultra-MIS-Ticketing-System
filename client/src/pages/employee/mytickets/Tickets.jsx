@@ -8,6 +8,14 @@ import ViewTicket from "./forms/ViewTicket";
 import { STATUS_MAP, PRIORITY_MAP, STATUS_COLOR, PRIORITY_COLOR } from "../../../mapping/ticketMapping";
 import { DEPARTMENT_MAP, BRANCH_MAP } from "../../../mapping/userDetailsMapping"; 
 import { socket } from "../../../socket";
+import { toast } from "sonner"; 
+
+import { 
+  playNotifTicketSound, 
+  playResolveTicketSound, 
+  playfailedTicketSound,
+  playNewTicketSound 
+} from "../../../utils/playNotification";
 
 export default function Tickets() {
   const [tickets, setTickets] = useState([]);
@@ -53,19 +61,38 @@ export default function Tickets() {
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => { fetchTickets(); }, 300);
 
-    // 1. New Ticket Added
+    // 1. New Ticket Received
     socket.on("ticket:new", (newTicket) => {
       const userString = sessionStorage.getItem("user");
       if (!userString) return;
       const userData = JSON.parse(userString);
 
-      if (page === 1 && parseInt(newTicket.employee_id) === parseInt(userData.employee_id)) {
-        setTickets((prev) => [newTicket, ...prev].slice(0, 10));
+      if (parseInt(newTicket.employee_id) === parseInt(userData.employee_id)) {
+        playNewTicketSound();
+        toast.info(`Ticket Created: ${newTicket.ticket_number}`);
+        if (page === 1) {
+          setTickets((prev) => [newTicket, ...prev].slice(0, 10));
+        }
       }
     });
 
-    // 2. Status & Resolution Updated (REAL-TIME FIX)
+    // 2. Status & Resolution Updated
     socket.on("ticket:statusUpdated", (updatedData) => {
+      const targetTicket = tickets.find(t => t.ticket_id === updatedData.ticket_id);
+      const ticketLabel = targetTicket ? targetTicket.ticket_number : "Ticket";
+      const statusStr = String(updatedData.status).toLowerCase();
+      
+      if (['closed', 'resolved', '4'].includes(statusStr)) {
+        playResolveTicketSound();
+        toast.success(`${ticketLabel} has been Resolved!`);
+      } else if (['failed', '5'].includes(statusStr)) {
+        playfailedTicketSound();
+        toast.error(`${ticketLabel} is marked as Failed.`);
+      } else {
+        playNotifTicketSound();
+        toast.info(`Status update for ${ticketLabel}`);
+      }
+
       setTickets((prev) => prev.map((t) => 
         t.ticket_id === updatedData.ticket_id 
           ? { 
@@ -78,8 +105,19 @@ export default function Tickets() {
       ));
     });
 
-    // NEW: Listener for the specific resolution update event sent by backend
+    // 3. Specific Resolution Update
     socket.on("ticket:resolvedUpdated", (updatedData) => {
+      const targetTicket = tickets.find(t => t.ticket_id === updatedData.ticket_id);
+      const ticketLabel = targetTicket ? targetTicket.ticket_number : "Ticket";
+
+      if (Number(updatedData.is_resolved) === 1) {
+        playResolveTicketSound();
+        toast.success(`${ticketLabel}: Resolution Confirmed`);
+      } else {
+        playfailedTicketSound();
+        toast.warning(`${ticketLabel}: Resolution Rejected`);
+      }
+
       setTickets((prev) => prev.map((t) => 
         t.ticket_id === updatedData.ticket_id 
           ? { ...t, is_resolved: Number(updatedData.is_resolved) } 
@@ -87,8 +125,12 @@ export default function Tickets() {
       ));
     });
 
-    // 3. Priority Updated
+    // 4. Priority Updated
     socket.on("ticket:priorityUpdated", (updatedData) => {
+      const targetTicket = tickets.find(t => t.ticket_id === updatedData.ticket_id);
+      playNotifTicketSound();
+      toast.info(`Priority changed for ${targetTicket?.ticket_number || 'Ticket'}`);
+
       setTickets((prev) => prev.map((t) => 
         t.ticket_id === updatedData.ticket_id 
           ? { ...t, priority: updatedData.priority } 
@@ -96,7 +138,6 @@ export default function Tickets() {
       ));
     });
 
-    // 4. Ticket Deleted
     socket.on("ticket:deleted", (deletedId) => {
       setTickets((prev) => prev.filter((t) => t.ticket_id !== deletedId));
     });
@@ -109,7 +150,7 @@ export default function Tickets() {
       socket.off("ticket:priorityUpdated");
       socket.off("ticket:deleted");
     };
-  }, [page, search, statusFilter, priorityFilter, dateFilter]);
+  }, [page, search, statusFilter, priorityFilter, dateFilter, tickets]); 
 
   const clearFilters = () => {
     setSearch("");
@@ -122,12 +163,8 @@ export default function Tickets() {
   const formatDateTime = (dateString) => {
     if (!dateString) return null;
     return new Date(dateString).toLocaleString("en-US", { 
-      month: "short", 
-      day: "numeric", 
-      year: "numeric",
-      hour: "numeric",
-      minute: "2-digit",
-      hour12: true
+      month: "short", day: "numeric", year: "numeric",
+      hour: "numeric", minute: "2-digit", hour12: true
     });
   };
 
@@ -207,28 +244,23 @@ export default function Tickets() {
       <div className="space-y-4">
         {tickets.map((ticket) => {
           const statusLower = ticket.status?.toString().toLowerCase();
-          const isFinalized = 
-            statusLower === 'closed' || 
-            statusLower === 'resolved' || 
-            statusLower === 'failed' || 
-            statusLower === '4' || 
-            statusLower === '5';
+          const priorityLower = ticket.priority?.toString().toLowerCase();
+          const isFinalized = ['closed', 'resolved', 'failed', '4', '5'].includes(statusLower);
 
           return (
             <div key={ticket.ticket_id} className="group bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-blue-200 transition-all duration-200 overflow-hidden">
               <div className="p-5">
                 <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-6">
                   <div className="flex-1 space-y-4">
-                    
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
                       <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-gray-100 text-gray-400 border border-gray-200 font-mono flex-shrink-0">
                         {ticket.ticket_number}
                       </span>
-                      
                       <h3 className="text-lg font-bold text-gray-800 group-hover:text-blue-600 transition-colors capitalize text-left">
                         {ticket.subject}
                       </h3>
-
+                      
+                      {/* Meta info tags */}
                       <div className="flex items-center gap-2">
                         <div className="flex items-center gap-1 px-2 py-0.5 bg-slate-100/50 rounded border border-slate-200/60">
                           <Building2 size={12} className="text-slate-400" />
@@ -236,7 +268,6 @@ export default function Tickets() {
                             {DEPARTMENT_MAP[ticket.department_id] || "Unknown"}
                           </span>
                         </div>
-                        
                         <div className="flex items-center gap-1 px-2 py-0.5 bg-slate-100/50 rounded border border-slate-200/60">
                           <MapPin size={12} className="text-slate-400" />
                           <span className="text-[10px] font-bold text-slate-500 uppercase">
@@ -266,26 +297,26 @@ export default function Tickets() {
                     </div>
                   </div>
 
-                  {/* STATUS & ACTION */}
+                  {/* STATUS & PRIORITY SECTION */}
                   <div className="flex items-center gap-4">
                     <div className="flex flex-col items-end gap-2">
                       <div className="flex items-center gap-2">
                         {isFinalized && (
-                           <div 
-                             key={`emp-res-${ticket.ticket_id}-${ticket.is_resolved}`} 
-                             className={`p-1 rounded-full border shadow-sm animate-in zoom-in duration-300 ${Number(ticket.is_resolved) === 1 ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-red-50 text-red-600 border-red-200'}`}
-                           >
-                              {Number(ticket.is_resolved) === 1 ? <CheckCircle2 size={12}/> : <XCircle size={12}/>}
-                           </div>
+                          <div className={`p-1 rounded-full border shadow-sm ${Number(ticket.is_resolved) === 1 ? 'bg-emerald-50 text-emerald-600 border-emerald-200' : 'bg-red-50 text-red-600 border-red-200'}`}>
+                            {Number(ticket.is_resolved) === 1 ? <CheckCircle2 size={12}/> : <XCircle size={12}/>}
+                          </div>
                         )}
                         <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wide ring-1 ring-inset shadow-sm ${STATUS_COLOR[statusLower] || "bg-gray-100 text-gray-600 ring-gray-200"}`}>
                           {STATUS_MAP[statusLower] || ticket.status}
                         </span>
                       </div>
-                      <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wide ring-1 ring-inset shadow-sm ${PRIORITY_COLOR[ticket.priority?.toLowerCase()] || "bg-gray-100 text-gray-600 ring-gray-200"}`}>
-                        {PRIORITY_MAP[ticket.priority?.toLowerCase()] || ticket.priority}
+                      
+                      {/* PRIORITY BADGE (RESTORED HERE) */}
+                      <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wide ring-1 ring-inset shadow-sm ${PRIORITY_COLOR[priorityLower] || "bg-gray-100 text-gray-600 ring-gray-200"}`}>
+                        {PRIORITY_MAP[priorityLower] || ticket.priority}
                       </span>
                     </div>
+
                     <button onClick={() => setSelectedTicket(ticket)} className="flex items-center gap-2 p-2.5 rounded-xl bg-gray-50 text-gray-400 hover:bg-blue-600 hover:text-white transition-all border border-gray-100 group-hover:border-blue-600 shadow-sm">
                       <Eye size={20} />
                       <span className="hidden sm:inline text-sm font-bold">View</span>
@@ -311,4 +342,4 @@ export default function Tickets() {
       {selectedTicket && <ViewTicket ticket={selectedTicket} onClose={() => setSelectedTicket(null)} />}
     </div>
   );
-} 
+}
