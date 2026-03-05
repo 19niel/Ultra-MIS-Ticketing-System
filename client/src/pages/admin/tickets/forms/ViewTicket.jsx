@@ -24,7 +24,7 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
   const [displayPriority, setDisplayPriority] = useState(ticket.priority);
   const [displayAssignee, setDisplayAssignee] = useState(ticket.assigned_to);
   const [isResolved, setIsResolved] = useState(ticket.is_resolved);
-  const [displayCategory, setDisplayCategory] = useState(ticket.category);
+  const [displayCategory, setDisplayCategory] = useState(ticket.category_name);
   const [displayRemarks, setDisplayRemarks] = useState(ticket.remarks);
   const [displayClosedAt, setDisplayClosedAt] = useState(ticket.closed_at);
   const [displaySubject, setDisplaySubject] = useState(ticket.subject);

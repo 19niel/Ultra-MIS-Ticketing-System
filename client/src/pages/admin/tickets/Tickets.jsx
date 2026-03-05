@@ -66,7 +66,7 @@ export default function Tickets() {
 
       playNewTicketSound();
       toast.info(<NewTicketTemplate ticket={newTicket} />, {
-        duration: 10000,
+        duration: 8000,
         className: "rounded-2xl border-none shadow-lg", // Optional: style the toast container
       });
       fetchTickets(); 
@@ -250,7 +250,7 @@ export default function Tickets() {
                       </div>
                       <div className="flex items-center gap-1.5 text-gray-400">
                         <Tag size={14} />
-                        <span className="text-gray-500">{ticket.category}</span>
+                        <span className="text-gray-500">{ticket.category_name}</span>
                       </div>
                       <div className="flex items-center gap-1.5 text-gray-400">
                         <Clock size={14} />
