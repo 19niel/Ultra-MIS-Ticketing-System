@@ -191,12 +191,10 @@ export default function Profile() {
           <DetailCard 
             icon={<ShieldCheck className="text-emerald-500" size={20} />}
             label="Access Level"
-            isEditing={isEditing}
             type="select"
             name="role_id"
             value={formData.role_id}
             options={ROLE_MAP}
-            onChange={handleChange}
             fullWidth
           />
         </div>

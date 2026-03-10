@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { 
   Search, UserPlus, Edit, Trash2, User, Mail, 
-  ShieldCheck, Fingerprint, Filter, ChevronLeft, ChevronRight 
+  ShieldCheck, Fingerprint, Filter, ChevronLeft, ChevronRight, KeyRound
 } from "lucide-react";
 
 import AddUserForm from "./forms/AddUserForm";
 import EditUserForm from "./forms/EditUserForm";
 import DeleteUserForm from "./forms/DeleteUserForm";
+import ChangePassword from "./forms/ChangePassword";
 
 export default function Users() {
   const [search, setSearch] = useState("");
@@ -19,6 +20,8 @@ export default function Users() {
   const [editingUser, setEditingUser] = useState(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
+
+  const [changingPasswordUser, setChangingPasswordUser] = useState(null);
 
   const fetchUsers = async () => {
     try {
@@ -191,6 +194,15 @@ export default function Users() {
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center justify-end gap-2">
+
+                      <button
+                        onClick={() => setChangingPasswordUser(user)}
+                        className="p-2 rounded-lg bg-gray-50 text-amber-500 hover:bg-amber-600 hover:text-white transition-all border border-gray-100 shadow-sm"
+                        title="Force Reset Password"
+                      >
+                        <KeyRound size={16} />
+                      </button>
+                      
                       <button
                         onClick={() => setEditingUser(user)}
                         className="p-2 rounded-lg bg-gray-50 text-gray-400 hover:bg-blue-600 hover:text-white transition-all border border-gray-100 shadow-sm"
@@ -198,6 +210,9 @@ export default function Users() {
                       >
                         <Edit size={16} />
                       </button>
+
+
+
                       <button
                         onClick={() => {
                           setSelectedUser(user);
@@ -224,6 +239,15 @@ export default function Users() {
           isOpen={!!editingUser}
           user={editingUser}
           onClose={() => setEditingUser(null)}
+          onSuccess={fetchUsers}
+        />
+      )}
+
+      {changingPasswordUser && (
+        <ChangePassword
+          isOpen={!!changingPasswordUser}
+          user={changingPasswordUser}
+          onClose={() => setChangingPasswordUser(null)}
           onSuccess={fetchUsers}
         />
       )}

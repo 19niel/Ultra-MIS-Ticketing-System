@@ -168,3 +168,37 @@
           res.status(500).json({ message: "Internal server error" });
       }
   };
+
+  export const forceResetUserPassword = async (req, res) => {
+      const { userId, newPassword } = req.body;
+
+      // 1. LOG EVERYTHING - Check your terminal!
+      console.log("--- DEBUG PASSWORD RESET ---");
+      console.log("Incoming User ID:", userId);
+      console.log("Incoming New Password:", newPassword);
+
+      if (!userId || !newPassword) {
+          return res.status(400).json({ message: "User ID and new password are required" });
+      }
+
+      try {
+          // 2. Perform the update
+          const [result] = await db.query(
+              "UPDATE users SET password_hash = ? WHERE user_id = ?",
+              [newPassword, userId]
+          );
+
+          // 3. Check if any row was actually modified
+          if (result.affectedRows === 0) {
+              console.log("RESULT: No user found with ID", userId);
+              return res.status(404).json({ message: "User not found in database" });
+          }
+
+          console.log("RESULT: Successfully updated ID", userId);
+          res.status(200).json({ message: "Password updated successfully!" });
+
+      } catch (error) {
+          console.error("DATABASE ERROR:", error);
+          res.status(500).json({ message: "Internal server error" });
+      }
+  };
