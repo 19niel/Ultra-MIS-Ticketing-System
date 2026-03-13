@@ -13,7 +13,7 @@ export default function Header({ role = "admin" }) {
   useEffect(() => {
     const fetchUser = async () => {
       try {
-        const res = await fetch("http://localhost:3000/auth/me", {
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/me`, {
           method: "GET",
           credentials: "include", // important: sends cookie
         });
@@ -47,7 +47,7 @@ export default function Header({ role = "admin" }) {
 
   const handleLogout = async () => {
     try {
-      await fetch("http://localhost:3000/auth/logout", {
+      await fetch(`${import.meta.env.VITE_API_URL}/auth/logout`, {
         method: "POST",
         credentials: "include",
       });

@@ -19,7 +19,7 @@ export default function ChangePassword({ isOpen, user, onClose, onSuccess }) {
 
     setLoading(true);
     try {
-      const res = await axios.put('http://localhost:3000/api/users/force-reset-password', {
+      const res = await axios.put(`${import.meta.env.VITE_API_URL}/api/users/force-reset-password`, {
         userId: user.user_id,
         newPassword
       });

@@ -17,14 +17,14 @@ export default function NewTicket() {
   });
 
   useEffect(() => {
-    fetch("http://localhost:3000/api/tickets/latest-number")
+    fetch(`${import.meta.env.VITE_API_URL}/api/tickets/latest-number`)
       .then((res) => res.json())
       .then((data) => {
         if (data.latestTicketNumber) setLatestTicketNumber(data.latestTicketNumber);
       })
       .catch((err) => console.error("Error fetching latest number:", err));
 
-    fetch("http://localhost:3000/auth/me", { credentials: "include" })
+    fetch(`${import.meta.env.VITE_API_URL}/auth/me`, { credentials: "include" })
       .then((res) => {
         if (!res.ok) throw new Error("Not authenticated");
         return res.json();
@@ -70,7 +70,7 @@ export default function NewTicket() {
         assigned_to: null,
       };
 
-      const res = await fetch("http://localhost:3000/api/tickets", {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/tickets`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

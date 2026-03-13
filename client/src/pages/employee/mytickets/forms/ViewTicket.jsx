@@ -8,7 +8,7 @@ import { DEPARTMENT_MAP, BRANCH_MAP } from "../../../../mapping/userDetailsMappi
 import { toast } from "sonner";
 import { socket } from "../../../../socket"; 
 
-const BASE_URL = "http://localhost:3000/api/tickets";
+const BASE_URL = `${import.meta.env.VITE_API_URL}/api/tickets`;
 
 export default function ViewTicket({ ticket, onClose }) {
   const [currentUser, setCurrentUser] = useState(null);
@@ -78,7 +78,7 @@ export default function ViewTicket({ ticket, onClose }) {
   useEffect(() => {
     const fetchCurrentUser = async () => {
       try {
-        const res = await fetch("http://localhost:3000/auth/me", { credentials: "include" });
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/auth/me`, { credentials: "include" });
         if (res.ok) setCurrentUser((await res.json()).user);
       } catch (err) { console.error(err); }
     };

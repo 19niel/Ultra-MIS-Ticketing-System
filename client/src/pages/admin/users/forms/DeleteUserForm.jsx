@@ -7,7 +7,7 @@ export default function DeleteUserForm({ isOpen, onClose, user, onDeleted }) {
 
   const handleDelete = async () => {
     try {
-      const res = await fetch(`http://localhost:3000/api/users/${user.user_id}`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users/${user.user_id}`, {
         method: "DELETE"
       });
 

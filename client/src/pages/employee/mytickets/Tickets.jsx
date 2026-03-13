@@ -43,7 +43,7 @@ export default function Tickets() {
         dateRange: dateFilter 
       }).toString();
 
-      const res = await fetch(`http://localhost:3000/api/employee/tickets?${query}`);
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/employee/tickets?${query}`);
       const data = await res.json();
       
       setTickets(data.tickets || []);

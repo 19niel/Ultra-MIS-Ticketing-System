@@ -17,7 +17,7 @@ const AdminDashboard = () => {
 
   const fetchStats = useCallback(async () => {
     try {
-      const res = await fetch("http://localhost:3000/api/tickets/stats/summary");
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/tickets/stats/summary`);
       if (res.ok) {
         const data = await res.json();
         setStats(data);

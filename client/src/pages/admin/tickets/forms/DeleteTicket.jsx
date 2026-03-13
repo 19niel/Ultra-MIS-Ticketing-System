@@ -7,7 +7,7 @@ export default function DeleteTicketForm({ isOpen, onClose, ticket, onDeleted })
 
   const handleDelete = async () => {
     try {
-      const res = await fetch(`http://localhost:3000/api/tickets/${ticket.ticket_id}`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/tickets/${ticket.ticket_id}`, {
         method: "DELETE"
       });
 

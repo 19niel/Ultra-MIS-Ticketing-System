@@ -13,7 +13,7 @@ import CloseTicketModal from "./CloseTicketModal";
 
 const STATUS_ID_TO_NAME = { 1: "Open", 2: "In Progress", 3: "On Hold" };
 const PRIORITY_ID_TO_NAME = { 1: "Low", 2: "Medium", 3: "High", 4: "Urgent" }; 
-const BASE_URL = "http://localhost:3000/api/tickets";
+const BASE_URL = `${import.meta.env.VITE_API_URL}/api/tickets`;
 
 export default function ViewTicket({ ticket, onClose, userRole }) {
   const [currentUser, setCurrentUser] = useState(null);
@@ -130,7 +130,7 @@ export default function ViewTicket({ ticket, onClose, userRole }) {
     const fetchInitialData = async () => {
       try {
         const [meRes, supportRes] = await Promise.all([
-          fetch("http://localhost:3000/auth/me", { credentials: "include" }),
+          fetch(`${import.meta.env.VITE_API_URL}/auth/me`, { credentials: "include" }),
           fetch(`${BASE_URL}/support-users`)
         ]);
         if (meRes.ok) setCurrentUser((await meRes.json()).user);

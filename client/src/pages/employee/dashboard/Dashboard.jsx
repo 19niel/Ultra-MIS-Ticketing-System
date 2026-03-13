@@ -30,7 +30,7 @@ const EmployeeDashboard = () => {
     if (!empId) return;
     
     try {
-      const res = await fetch(`http://localhost:3000/api/employee/tickets/stats/${empId}`);
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/employee/tickets/stats/${empId}`);
       
       if (res.ok) {
         const data = await res.json();

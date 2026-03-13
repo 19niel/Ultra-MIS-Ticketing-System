@@ -24,7 +24,7 @@ const Reports = () => {
   useEffect(() => {
     const fetchEmployees = async () => {
       try {
-        const res = await fetch(`http://localhost:3000/api/users/list`); // Adjust this URL to your specific route
+        const res = await fetch(`${import.meta.env.VITE_API_URL}/api/users/list`); // Adjust this URL to your specific route
         if (res.ok) {
           const result = await res.json();
           setEmployees(result);
@@ -40,7 +40,7 @@ const Reports = () => {
     setLoading(true);
     try {
       const query = new URLSearchParams(filters).toString();
-      const res = await fetch(`http://localhost:3000/api/reports?${query}`);
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/reports?${query}`);
       const result = await res.json();
       setData(result.chartData);
       setSummary(result.summary);
